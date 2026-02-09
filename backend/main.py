@@ -1,15 +1,16 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from typing import List
-from agent import BizMartAgent
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import List, Optional
+from agent import BizMartAgent
 
-app = FastAPI()
+app = FastAPI(title="BizFun API", version="1.0.0")
 
 # Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # In production, specify exact origins
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -20,31 +21,105 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     response: str
 
+class Market(BaseModel):
+    id: int
+    title: str
+    question: str
+    pool: str
+    ends_in: str
+    type: str
+    yes_percentage: Optional[int] = 50
+    no_percentage: Optional[int] = 50
+
 # Shared agent instance (for demo/prototype simplicity)
+# In production, use session management
 agent = BizMartAgent()
+
+@app.get("/")
+async def root():
+    return {
+        "message": "BizFun API",
+        "version": "1.0.0",
+        "status": "online"
+    }
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
+    """
+    Main chat endpoint for interacting with the BizMart agent
+    """
     try:
+        if not request.message or not request.message.strip():
+            raise HTTPException(status_code=400, detail="Message cannot be empty")
+        
         response_text = await agent.chat(request.message)
         return ChatResponse(response=response_text)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error in chat endpoint: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@app.get("/markets")
+@app.get("/markets", response_model=List[Market])
 async def get_markets():
-    # Placeholder for market listing logic
+    """
+    Get list of active prediction markets
+    """
     return [
-        {
-            "id": 1,
-            "title": "CyberTruck SaaS ARR",
-            "question": "Will 'CyberTruck SaaS' hit $10k ARR by Q3?",
-            "pool": "1,200 USDC",
-            "ends_in": "5d",
-            "type": "Startup"
-        }
+        Market(
+            id=1,
+            title="User Growth",
+            question="Will this project reach 50k Twitter followers in 90 days?",
+            pool="2,405 USDC",
+            ends_in="14d",
+            type="Social",
+            yes_percentage=67,
+            no_percentage=33
+        ),
+        Market(
+            id=2,
+            title="Revenue Milestone",
+            question="Will this SaaS hit $3k MRR in 30 days?",
+            pool="1,120 USDC",
+            ends_in="7d",
+            type="Revenue",
+            yes_percentage=42,
+            no_percentage=58
+        ),
+        Market(
+            id=3,
+            title="Product Launch",
+            question="Will the MVP ship before Q2 2025?",
+            pool="890 USDC",
+            ends_in="21d",
+            type="Product",
+            yes_percentage=78,
+            no_percentage=22
+        )
     ]
+
+@app.get("/stats")
+async def get_stats():
+    """
+    Get platform statistics
+    """
+    return {
+        "active_markets": 127,
+        "total_volume": "45,200 USDC",
+        "total_traders": 1834,
+        "markets_resolved": 89
+    }
+
+@app.post("/reset")
+async def reset_agent():
+    """
+    Reset the agent conversation (for testing)
+    """
+    global agent
+    agent = BizMartAgent()
+    return {"message": "Agent reset successfully"}
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    print("🚀 Starting BizFun API server...")
+    print("📍 API will be available at: http://localhost:8000")
+    print("📖 API docs at: http://localhost:8000/docs")
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
