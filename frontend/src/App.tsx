@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BarChart3, Wallet, Send, Terminal as TerminalIcon, CheckCircle2, Circle, Sparkles, TrendingUp, Users } from 'lucide-react';
+import { BarChart3, Wallet, Send, Terminal as TerminalIcon, CheckCircle2, Sparkles, TrendingUp, Users, Zap, Shield, Globe, ArrowRight, Play } from 'lucide-react';
 import axios from 'axios';
 
 interface Message {
@@ -31,7 +31,7 @@ const App: React.FC = () => {
     setIsTyping(true);
 
     try {
-      const response = await axios.post('http://localhost:8000/chat', { message: input });
+      const response = await axios.post('http://localhost:5001/chat', { message: input });
       setIsTyping(false);
       setMessages(prev => [...prev, { text: response.data.response, isBot: true }]);
       
@@ -42,7 +42,7 @@ const App: React.FC = () => {
           response.data.response.toLowerCase().includes("10 usdc fee")) {
         setStep(4);
       }
-    } catch (error) {
+    } catch {
       setIsTyping(false);
       setMessages(prev => [...prev, { text: "⚠️ Connection error. Make sure the backend is running on http://localhost:8000", isBot: true }]);
     }
