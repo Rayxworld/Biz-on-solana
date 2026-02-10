@@ -49,18 +49,13 @@ const Dashboard: React.FC<DashboardProps> = ({ walletAddress }) => {
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-          <div className="text-xs uppercase tracking-[0.35em] text-slate-400">Program Status</div>
+          <div className="text-xs uppercase tracking-[0.35em] text-slate-400">Network Status</div>
           <p className="mt-3 text-sm text-slate-200">
             {programStatus?.error ?? (programStatus?.exists ? 'Program is deployed and reachable.' : 'Program not found.')}
           </p>
           {programStatus?.program_id && (
             <div className="mt-4 text-xs text-slate-400">
-              Program ID: <span className="text-slate-200">{programStatus.program_id}</span>
-            </div>
-          )}
-          {programStatus?.owner && (
-            <div className="mt-2 text-xs text-slate-400">
-              Owner: <span className="text-slate-200">{programStatus.owner}</span>
+              Network ID: <span className="text-slate-200">{programStatus.program_id}</span>
             </div>
           )}
         </div>

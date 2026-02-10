@@ -26,7 +26,6 @@ const Home: React.FC = () => {
 
   useEffect(() => {
     api.get<Stats>('/stats').then((res) => setStats(res.data)).catch(() => setStats(null));
-    api.post('/reset').catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -48,8 +47,23 @@ const Home: React.FC = () => {
       setIsTyping(false);
       setMessages((prev) => [
         ...prev,
-        { text: 'Connection error. Make sure the backend is running on http://localhost:8000', isBot: true }
+        { text: 'Connection error. Make sure the service is running at http://localhost:8000', isBot: true }
       ]);
+    }
+  };
+
+  const handleReset = async () => {
+    try {
+      await api.post('/reset');
+    } finally {
+      setMessages([
+        {
+          text:
+            "Hey, I'm $BizMart. I help tokenize ideas, businesses, and even careers and launch their prediction markets. Ready?",
+          isBot: true
+        }
+      ]);
+      setInput('');
     }
   };
 
@@ -89,8 +103,8 @@ const Home: React.FC = () => {
                 <div className="h-3 w-3 rounded-full bg-emerald-300/90"></div>
               </div>
               <div>
-                <div className="text-xs uppercase tracking-[0.35em] text-slate-400">Agent Terminal</div>
-                <div className="text-[11px] text-slate-500">Operational v1.0.0</div>
+            <div className="text-xs uppercase tracking-[0.35em] text-slate-400">BizMart Terminal</div>
+            <div className="text-[11px] text-slate-500">Live Session</div>
               </div>
             </div>
             <div className="flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/60 px-3 py-1 text-xs text-slate-400">
@@ -138,13 +152,22 @@ const Home: React.FC = () => {
                 placeholder="Describe the market you want to launch..."
                 className="flex-1 bg-transparent text-sm text-slate-100 placeholder:text-slate-600 outline-none"
               />
-              <button
-                onClick={handleSend}
-                disabled={!input.trim()}
-                className="rounded-full bg-emerald-400 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-slate-900 transition hover:bg-emerald-300 disabled:opacity-40"
-              >
-                Send
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="rounded-full border border-white/10 px-4 py-2 text-[10px] uppercase tracking-[0.3em] text-slate-300 hover:bg-white/10"
+                >
+                  Start Over
+                </button>
+                <button
+                  onClick={handleSend}
+                  disabled={!input.trim()}
+                  className="rounded-full bg-emerald-400 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-slate-900 transition hover:bg-emerald-300 disabled:opacity-40"
+                >
+                  Send
+                </button>
+              </div>
             </div>
             <p className="mt-2 text-center text-[10px] uppercase tracking-[0.3em] text-slate-600">
               Press Enter to send

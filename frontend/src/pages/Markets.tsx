@@ -29,7 +29,7 @@ const Markets: React.FC = () => {
         </div>
         <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-slate-400">
           <BarChart3 size={16} className="text-emerald-300" />
-          Updated from backend
+          Live update
         </div>
       </div>
 

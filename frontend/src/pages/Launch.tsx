@@ -31,7 +31,7 @@ const Launch: React.FC = () => {
         <div className="text-xs uppercase tracking-[0.35em] text-slate-400">Launch</div>
         <h1 className="mt-2 text-3xl font-semibold text-white">Create a new market</h1>
         <p className="mt-3 text-sm text-slate-300">
-          Submit a market idea and start the BizMart flow. This will call the backend agent and return the next step.
+          Submit a market idea and start the BizMart flow. You’ll get the next step right away.
         </p>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
@@ -105,7 +105,7 @@ const Launch: React.FC = () => {
         </div>
         <div className="rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-400/10 via-slate-950/70 to-slate-950/90 p-5">
           <p className="text-sm text-slate-200">
-            On-chain creation is read-only for now. PDA seeds are wired, and write calls will be enabled once the final accounts are confirmed.
+            Creation is in preview mode for now. Once the final accounts are confirmed, we’ll enable live launch.
           </p>
         </div>
       </aside>
