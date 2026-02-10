@@ -1,8 +1,10 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 from agent import BizMartAgent
+import time
+from collections import defaultdict, deque
 
 app = FastAPI(title="BizFun API", version="1.0.0")
 
@@ -14,6 +16,24 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Simple in-memory rate limiter (per IP)
+RATE_LIMIT_WINDOW_SECONDS = 60
+RATE_LIMIT_MAX_REQUESTS = 60
+_ip_requests: dict[str, deque[float]] = defaultdict(deque)
+
+@app.middleware("http")
+async def rate_limit(request: Request, call_next):
+    client_ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    q = _ip_requests[client_ip]
+    # drop old entries
+    while q and now - q[0] > RATE_LIMIT_WINDOW_SECONDS:
+        q.popleft()
+    if len(q) >= RATE_LIMIT_MAX_REQUESTS:
+        raise HTTPException(status_code=429, detail="Too many requests. Please slow down.")
+    q.append(now)
+    return await call_next(request)
 
 class ChatRequest(BaseModel):
     message: str
