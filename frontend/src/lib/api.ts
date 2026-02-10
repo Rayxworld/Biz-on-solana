@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosHeaders } from 'axios';
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 
@@ -17,15 +17,8 @@ api.interceptors.request.use((config) => {
       }
       window.localStorage.setItem('bizmart_session_id', sessionId);
     }
-    const headers = config.headers;
-    if (headers && typeof (headers as { set?: (key: string, value: string) => void }).set === 'function') {
-      (headers as { set: (key: string, value: string) => void }).set('X-Session-Id', sessionId);
-    } else {
-      config.headers = {
-        ...(headers ?? {}),
-        'X-Session-Id': sessionId,
-      };
-    }
+    config.headers = AxiosHeaders.from(config.headers ?? {});
+    config.headers.set('X-Session-Id', sessionId);
   }
   return config;
 });
