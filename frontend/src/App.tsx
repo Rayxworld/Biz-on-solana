@@ -3,6 +3,7 @@ import { Routes, Route, NavLink, useNavigate } from 'react-router-dom';
 import { Wallet, Terminal as TerminalIcon } from 'lucide-react';
 import AppShell from './components/AppShell';
 import Home from './pages/Home';
+import Terminal from './pages/Terminal';
 import Markets from './pages/Markets';
 import Launch from './pages/Launch';
 import Dashboard from './pages/Dashboard';
@@ -62,6 +63,14 @@ const App: React.FC = () => {
             Home
           </NavLink>
           <NavLink
+            to="/terminal"
+            className={({ isActive }) =>
+              `rounded-full border px-4 py-2 ${isActive ? 'border-emerald-400/60 text-emerald-200' : 'border-white/10 text-slate-400 hover:text-white'}`
+            }
+          >
+            Terminal
+          </NavLink>
+          <NavLink
             to="/markets"
             className={({ isActive }) =>
               `rounded-full border px-4 py-2 ${isActive ? 'border-emerald-400/60 text-emerald-200' : 'border-white/10 text-slate-400 hover:text-white'}`
@@ -99,6 +108,7 @@ const App: React.FC = () => {
 
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/terminal" element={<Terminal />} />
         <Route path="/markets" element={<Markets />} />
         <Route path="/launch" element={<Launch />} />
         <Route path="/dashboard" element={<Dashboard walletAddress={walletAddress} />} />
