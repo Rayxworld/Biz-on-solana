@@ -217,6 +217,13 @@ async def reset_agent():
     agent = BizMartAgent()
     return {"message": "Agent reset successfully"}
 
+@app.get("/state")
+async def get_state():
+    """
+    Get current collection state for UI form view.
+    """
+    return agent.get_state()
+
 if __name__ == "__main__":
     import uvicorn
     print("🚀 Starting BizFun API server...")

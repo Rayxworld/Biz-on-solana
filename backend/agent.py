@@ -167,26 +167,42 @@ class BizMartAgent:
             self.collected_data[key] = user_input.strip()
         # Parse labeled input to reduce strictness
         lowered = user_input.lower()
-        if "name:" in lowered:
-            self.collected_data["name"] = user_input.split(":", 1)[1].strip()
+        # Parse labeled lines like "Name: BizFun AI"
+        lines = [line.strip() for line in user_input.splitlines() if line.strip()]
+        label_map = {
+            "type": "type",
+            "name": "name",
+            "socials": "socials",
+            "description": "description",
+            "audience": "value_audience",
+            "value": "value_audience",
+            "stage": "stage",
+            "prediction": "prediction_type",
+            "question": "prediction_question",
+            "duration": "duration",
+            "chain": "chain",
+            "vibe": "vibe",
+            "marketing": "marketing",
+            "wallet": "wallet",
+            "settlement": "wallet",
+        }
+        for line in lines:
+            if ":" in line:
+                label, value = line.split(":", 1)
+                key = label_map.get(label.strip().lower())
+                if key and value.strip():
+                    self.collected_data[key] = value.strip()
+
         if "twitter" in lowered or "http" in lowered:
             self.collected_data["socials"] = user_input.strip()
-        if "audience" in lowered or "value" in lowered:
-            self.collected_data["value_audience"] = user_input.strip()
-        if "stage" in lowered:
-            self.collected_data["stage"] = user_input.strip()
-        if "predict" in lowered:
-            self.collected_data["prediction_type"] = user_input.strip()
         if "will we" in lowered or "?" in lowered:
             self.collected_data["prediction_question"] = user_input.strip()
-        if "duration" in lowered:
+        if "duration" in lowered and any(ch.isdigit() for ch in lowered):
             self.collected_data["duration"] = user_input.strip()
-        if "chain" in lowered or "solana" in lowered or "base" in lowered or "bsc" in lowered:
+        if "solana" in lowered or "base" in lowered or "bsc" in lowered or "monad" in lowered:
             self.collected_data["chain"] = user_input.strip()
-        if "vibe" in lowered or "meme" in lowered or "serious" in lowered:
+        if "meme" in lowered or "serious" in lowered or "experimental" in lowered:
             self.collected_data["vibe"] = user_input.strip()
-        if "marketing" in lowered:
-            self.collected_data["marketing"] = user_input.strip()
         if "wallet" in lowered or "usdc" in lowered:
             self.collected_data["wallet"] = user_input.strip()
 
@@ -235,6 +251,25 @@ class BizMartAgent:
             "Reply 'confirm' to launch and fund the BizFun wallet with 10 USDC fee."
         )
         return summary
+
+    def get_state(self) -> dict:
+        order = [
+            "type",
+            "name",
+            "socials",
+            "description",
+            "value_audience",
+            "stage",
+            "prediction_type",
+            "prediction_question",
+            "duration",
+            "chain",
+            "vibe",
+            "marketing",
+            "wallet",
+        ]
+        missing = [k for k in order if not self.collected_data.get(k)]
+        return {"collected": self.collected_data, "missing": missing}
 
     def _extract_data_attempt(self, user_text: str, bot_text: str):
         """Basic parsing for demo; in production use LLM function calling"""

@@ -22,6 +22,7 @@ const Home: React.FC = () => {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [state, setState] = useState<{ collected: Record<string, string | null>; missing: string[] } | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -31,6 +32,15 @@ const Home: React.FC = () => {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
+
+  const refreshState = async () => {
+    try {
+      const res = await api.get('/state');
+      setState(res.data);
+    } catch {
+      setState(null);
+    }
+  };
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -43,6 +53,7 @@ const Home: React.FC = () => {
       const response = await api.post('/chat', { message: input });
       setIsTyping(false);
       setMessages((prev) => [...prev, { text: response.data.response, isBot: true }]);
+      await refreshState();
     } catch {
       setIsTyping(false);
       setMessages((prev) => [
@@ -64,6 +75,7 @@ const Home: React.FC = () => {
         }
       ]);
       setInput('');
+      await refreshState();
     }
   };
 
@@ -177,6 +189,48 @@ const Home: React.FC = () => {
       </section>
 
       <aside className="lg:col-span-5 space-y-6">
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+          <div className="text-xs uppercase tracking-[0.35em] text-slate-400">Answer Guide</div>
+          <p className="mt-3 text-sm text-slate-200">
+            Use this format for fast, clean answers:
+          </p>
+          <pre className="mt-4 rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-xs text-slate-200 whitespace-pre-wrap">
+{`Type: Business
+Name: BizFun AI
+Socials: https://x.com/bizfunai
+Description: We’re building an AI agent for prediction markets.
+Audience/Value: Startup founders and crypto builders; automated market creation.
+Stage: Building
+Prediction: Revenue growth
+Question: Will we reach $3k MRR in 30 days?
+Duration: 14 days
+Chain: Solana
+Vibe: Serious
+Marketing: Chaos mode
+Wallet: <USDC wallet address>`}
+          </pre>
+          <p className="mt-3 text-xs text-slate-500">
+            Tip: You can send all fields at once, then type <span className="text-slate-200">confirm</span>.
+          </p>
+        </div>
+
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+          <div className="text-xs uppercase tracking-[0.35em] text-slate-400">Form View</div>
+          <div className="mt-4 space-y-2 text-xs text-slate-300">
+            {state?.collected ? (
+              Object.entries(state.collected).map(([key, value]) => (
+                <div key={key} className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-slate-950/50 px-3 py-2">
+                  <span className="uppercase tracking-[0.3em] text-slate-500">{key.replace('_', ' ')}</span>
+                  <span className={`text-right ${value ? 'text-emerald-200' : 'text-slate-500'}`}>
+                    {value ?? 'missing'}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="text-slate-500">No session data yet.</div>
+            )}
+          </div>
+        </div>
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
           <div className="flex items-center justify-between">
             <h2 className="text-xs uppercase tracking-[0.35em] text-slate-400">Live Metrics</h2>
