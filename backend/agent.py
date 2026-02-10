@@ -231,6 +231,26 @@ class BizMartAgent:
             return "Please answer one field at a time in the format: Field: value"
         match = label_pattern.match(lines[0])
         if not match:
+            # Allow raw link for socials if socials is the expected field
+            expected_order = [
+                "type",
+                "name",
+                "socials",
+                "description",
+                "value_audience",
+                "stage",
+                "prediction_type",
+                "prediction_question",
+                "duration",
+                "chain",
+                "vibe",
+                "marketing",
+                "wallet",
+            ]
+            expected_key = expected_order[self.step - 1] if 1 <= self.step <= len(expected_order) else None
+            if expected_key == "socials" and ("http://" in lines[0] or "https://" in lines[0] or "x.com" in lines[0] or "twitter.com" in lines[0]):
+                self.collected_data["socials"] = lines[0]
+                return None
             return "Strict mode: use Field: value (e.g., Type: Business). No extra fields in one line."
         label = match.group(1).strip().lower()
         value = match.group(2).strip()

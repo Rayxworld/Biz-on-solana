@@ -37,6 +37,40 @@ const Terminal: React.FC = () => {
     }
   }, [messages, isTyping]);
 
+  const fieldOrder = [
+    'Type',
+    'Name',
+    'Socials',
+    'Description',
+    'Audience/Value',
+    'Stage',
+    'Prediction',
+    'Question',
+    'Duration',
+    'Chain',
+    'Vibe',
+    'Marketing',
+    'Wallet',
+  ];
+
+  const refreshState = async () => {
+    try {
+      const res = await api.get('/state');
+      const missing = res.data?.missing ?? [];
+      if (missing.length) {
+        const label = missing[0].replace('_', '/').replace('value/audience', 'Audience/Value');
+        const normalized =
+          label.toLowerCase() === 'value_audience' ? 'Audience/Value' : label.replace(/_/g, ' ');
+        const match = fieldOrder.find((f) => f.toLowerCase() === normalized.toLowerCase());
+        if (match) setCurrentField(match);
+      } else {
+        setCurrentField('Confirm');
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim()) return;
     const prepared = `${currentField}: ${input.trim()}`;
@@ -49,11 +83,7 @@ const Terminal: React.FC = () => {
       const response = await api.post('/chat', { message: prepared });
       setIsTyping(false);
       setMessages((prev) => [...prev, { text: response.data.response, isBot: true }]);
-      // Advance field based on bot response (strict flow)
-      const nextField = response.data.response.split(':')[0].trim();
-      if (nextField && nextField.length < 30 && nextField !== 'Summary') {
-        setCurrentField(nextField);
-      }
+      await refreshState();
     } catch {
       setIsTyping(false);
       setMessages((prev) => [
@@ -76,8 +106,13 @@ const Terminal: React.FC = () => {
       ]);
       setInput('');
       scrollToBottom();
+      await refreshState();
     }
   };
+
+  useEffect(() => {
+    refreshState();
+  }, []);
 
   return (
     <section className="grid gap-6 lg:grid-cols-12">
@@ -161,6 +196,15 @@ const Terminal: React.FC = () => {
             >
               Send
             </button>
+            {(currentField === 'Socials' || currentField === 'Marketing') && (
+              <button
+                type="button"
+                onClick={() => setInput('skip')}
+                className="rounded-full border border-white/10 px-3 py-2 text-[10px] uppercase tracking-[0.3em] text-slate-300 hover:bg-white/10"
+              >
+                Skip
+              </button>
+            )}
           </div>
         </div>
       </div>
