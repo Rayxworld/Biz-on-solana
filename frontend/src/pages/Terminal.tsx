@@ -136,18 +136,23 @@ const Terminal: React.FC = () => {
         )}
 
         <div className="border-t border-white/10 bg-slate-950/60 px-5 py-4">
-          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-2.5">
+          <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-2.5">
             <span className="text-lg font-semibold text-emerald-300">$</span>
             <span className="rounded-xl border border-white/10 bg-slate-900/60 px-2 py-1 text-[10px] uppercase tracking-[0.3em] text-slate-400">
               {currentField}:
             </span>
-            <input
-              type="text"
+            <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-              placeholder="Type your answer…"
-              className="flex-1 bg-transparent text-sm text-slate-100 placeholder:text-slate-600 outline-none"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              placeholder="Type your answer… (Enter to send, Shift+Enter for new line)"
+              className="flex-1 bg-transparent text-sm text-slate-100 placeholder:text-slate-600 outline-none resize-none"
+              rows={2}
             />
             <button
               onClick={handleSend}

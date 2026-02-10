@@ -276,6 +276,12 @@ class BizMartAgent:
         if expected_key and key != expected_key:
             label_display = self.flow_questions[self.step - 1]
             return f"Please answer the current field only: {label_display}"
+        optional_fields = {"socials", "marketing"}
+        if value.lower() in {"skip", "none", "n/a"}:
+            if key in optional_fields:
+                self.collected_data[key] = "skipped"
+                return None
+            return "This field is required. Please provide a value."
         self.collected_data[key] = value
         return None
     def get_state(self) -> dict:
