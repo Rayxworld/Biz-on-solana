@@ -70,3 +70,8 @@ backend/venv/
 backend/__pycache__/
 backend/$null
 frontend/node_modules/
+
+# Do not ignore frontend source lib
+!frontend/src/lib/
+!frontend/src/lib/**
+!frontend/src/env.d.ts

@@ -17,7 +17,7 @@ const Markets: React.FC = () => {
   const [markets, setMarkets] = useState<Market[]>([]);
 
   useEffect(() => {
-    api.get('/markets').then((res) => setMarkets(res.data)).catch(() => setMarkets([]));
+    api.get<Market[]>('/markets').then((res) => setMarkets(res.data)).catch(() => setMarkets([]));
   }, []);
 
   return (

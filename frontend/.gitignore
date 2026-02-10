@@ -69,3 +69,8 @@ backend/venv/
 backend/__pycache__/
 backend/$null
 frontend/node_modules/
+
+# Do not ignore src/lib in this app
+!src/lib/
+!src/lib/**
+!src/env.d.ts

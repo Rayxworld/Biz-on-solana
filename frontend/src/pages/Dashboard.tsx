@@ -33,9 +33,9 @@ const Dashboard: React.FC<DashboardProps> = ({ walletAddress }) => {
   const [programAccounts, setProgramAccounts] = useState<ProgramAccounts | null>(null);
 
   useEffect(() => {
-    api.get('/stats').then((res) => setStats(res.data)).catch(() => setStats(null));
-    api.get('/program/status').then((res) => setProgramStatus(res.data)).catch(() => setProgramStatus(null));
-    api.get('/program/accounts').then((res) => setProgramAccounts(res.data)).catch(() => setProgramAccounts(null));
+    api.get<Stats>('/stats').then((res) => setStats(res.data)).catch(() => setStats(null));
+    api.get<ProgramStatus>('/program/status').then((res) => setProgramStatus(res.data)).catch(() => setProgramStatus(null));
+    api.get<ProgramAccounts>('/program/accounts').then((res) => setProgramAccounts(res.data)).catch(() => setProgramAccounts(null));
   }, []);
 
   return (

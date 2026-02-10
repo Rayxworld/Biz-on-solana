@@ -25,7 +25,7 @@ const Home: React.FC = () => {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    api.get('/stats').then((res) => setStats(res.data)).catch(() => setStats(null));
+    api.get<Stats>('/stats').then((res) => setStats(res.data)).catch(() => setStats(null));
     api.post('/reset').catch(() => undefined);
   }, []);
 
