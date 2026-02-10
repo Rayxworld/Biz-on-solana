@@ -65,19 +65,20 @@ class BizMartAgent:
         # Step index (1-based) for deterministic flow after intro
         self.step = 1
         self.flow_questions = [
-            "2️⃣ Type: What are we tokenizing? (Business / Startup / Idea / Career / Experiment)",
-            "3️⃣ Name & Socials: What should we call it? Drop name + links (X, LinkedIn, website).",
-            "4️⃣ Description: Give me a short pitch (a few sentences) you’d use on X.",
-            "5️⃣ Value & Audience: What exact value do you deliver and who is the core audience?",
-            "6️⃣ Stage: Be honest—what stage are you at? (Idea / Building / Launched / Making Money / Growing)",
-            "7️⃣ Prediction: What should the market predict? (Revenue / Sales / Growth / Followers)",
-            "8️⃣ Specific Question: Write the prediction in plain English (e.g., 'Will this make $3k in 30 days?').",
-            "9️⃣ Duration: 7, 14, or 30 days?",
-            "10️⃣ Chain: Base, Monad, BSC, or Solana?",
-            "11️⃣ Vibe: Meme, Serious, or Experimental?",
-            "12️⃣ Marketing: Can I market this publicly? (MoltBook, AI debates, Reply chaos, Chaos mode)",
-            "13️⃣ Settlement: Drop a USDC address for settlement.",
-            "14️⃣ Final confirm: I’ll summarize—reply 'confirm' to launch and fund the BizFun wallet with 10 USDC fee."
+            "Type: Business | Startup | Idea | Career | Experiment",
+            "Name: <project name>",
+            "Socials: <X / LinkedIn / website links>",
+            "Description: <short pitch>",
+            "Audience/Value: <who + value delivered>",
+            "Stage: Idea | Building | Launched | Making Money | Growing",
+            "Prediction: Revenue | Sales | Growth | Followers",
+            "Question: <plain English prediction>",
+            "Duration: 7 | 14 | 30 days",
+            "Chain: Solana | Base | Monad | BSC",
+            "Vibe: Meme | Serious | Experimental",
+            "Marketing: MoltBook | AI debates | Reply chaos | Chaos mode",
+            "Wallet: <USDC address>",
+            "Confirm: type confirm to launch"
         ]
         self._intro_sent = True
 
@@ -215,7 +216,7 @@ class BizMartAgent:
             f"- Vibe: {self.collected_data.get('vibe')}\n"
             f"- Marketing: {self.collected_data.get('marketing')}\n"
             f"- Settlement Wallet: {self.collected_data.get('wallet')}\n\n"
-            "Reply 'confirm' to launch and fund the BizFun wallet with 10 USDC fee."
+            "Type confirm to launch and fund the BizFun wallet with 10 USDC fee."
         )
         return summary
 
@@ -230,7 +231,7 @@ class BizMartAgent:
             return "Please answer one field at a time in the format: Field: value"
         match = label_pattern.match(lines[0])
         if not match:
-            return "Please use the format: Field: value (e.g., Name: BizFun AI)"
+            return "Strict mode: use Field: value (e.g., Type: Business)"
         label = match.group(1).strip().lower()
         value = match.group(2).strip()
         label_map = {
@@ -254,6 +255,26 @@ class BizMartAgent:
         key = label_map.get(label)
         if not key:
             return "Unknown field. Please use a supported label."
+        # Enforce the expected field for the current step
+        expected_order = [
+            "type",
+            "name",
+            "socials",
+            "description",
+            "value_audience",
+            "stage",
+            "prediction_type",
+            "prediction_question",
+            "duration",
+            "chain",
+            "vibe",
+            "marketing",
+            "wallet",
+        ]
+        expected_key = expected_order[self.step - 1] if 1 <= self.step <= len(expected_order) else None
+        if expected_key and key != expected_key:
+            label_display = self.flow_questions[self.step - 1]
+            return f"Please answer the current field only: {label_display}"
         self.collected_data[key] = value
         return None
     def get_state(self) -> dict:
