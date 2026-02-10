@@ -11,6 +11,7 @@ const Terminal: React.FC = () => {
     { text: "Hey, I'm $BizMart. I help tokenize ideas, businesses, and even careers and launch their prediction markets. Ready?", isBot: true }
   ]);
   const [input, setInput] = useState('');
+  const [currentField, setCurrentField] = useState('Type');
   const [isTyping, setIsTyping] = useState(false);
   const [showJump, setShowJump] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
@@ -38,15 +39,21 @@ const Terminal: React.FC = () => {
 
   const handleSend = async () => {
     if (!input.trim()) return;
-    const userMsg = { text: input, isBot: false };
+    const prepared = `${currentField}: ${input.trim()}`;
+    const userMsg = { text: prepared, isBot: false };
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setIsTyping(true);
 
     try {
-      const response = await api.post('/chat', { message: input });
+      const response = await api.post('/chat', { message: prepared });
       setIsTyping(false);
       setMessages((prev) => [...prev, { text: response.data.response, isBot: true }]);
+      // Advance field based on bot response (strict flow)
+      const nextField = response.data.response.split(':')[0].trim();
+      if (nextField && nextField.length < 30 && nextField !== 'Summary') {
+        setCurrentField(nextField);
+      }
     } catch {
       setIsTyping(false);
       setMessages((prev) => [
@@ -131,6 +138,9 @@ const Terminal: React.FC = () => {
         <div className="border-t border-white/10 bg-slate-950/60 px-5 py-4">
           <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-2.5">
             <span className="text-lg font-semibold text-emerald-300">$</span>
+            <span className="rounded-xl border border-white/10 bg-slate-900/60 px-2 py-1 text-[10px] uppercase tracking-[0.3em] text-slate-400">
+              {currentField}:
+            </span>
             <input
               type="text"
               value={input}

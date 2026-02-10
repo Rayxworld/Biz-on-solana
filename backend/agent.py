@@ -223,7 +223,7 @@ class BizMartAgent:
     def _store_answer_strict(self, user_input: str) -> str | None:
         import re
         label_pattern = re.compile(
-            r"^\s*(Type|Name|Socials|Description|Audience/Value|Audience|Value|Stage|Prediction|Question|Duration|Chain|Vibe|Marketing|Wallet|Settlement)\s*:\s*(.+)$",
+            r"^\s*(Type|Name|Socials|Social|Description|Audience/Value|Audience|Value|Stage|Prediction|Question|Duration|Chain|Vibe|Marketing|Wallet|Settlement)\s*:\s*(.+)$",
             re.IGNORECASE,
         )
         lines = [line.strip() for line in user_input.splitlines() if line.strip()]
@@ -231,12 +231,13 @@ class BizMartAgent:
             return "Please answer one field at a time in the format: Field: value"
         match = label_pattern.match(lines[0])
         if not match:
-            return "Strict mode: use Field: value (e.g., Type: Business)"
+            return "Strict mode: use Field: value (e.g., Type: Business). No extra fields in one line."
         label = match.group(1).strip().lower()
         value = match.group(2).strip()
         label_map = {
             "type": "type",
             "name": "name",
+            "social": "socials",
             "socials": "socials",
             "description": "description",
             "audience": "value_audience",
