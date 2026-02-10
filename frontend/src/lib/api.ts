@@ -17,10 +17,15 @@ api.interceptors.request.use((config) => {
       }
       window.localStorage.setItem('bizmart_session_id', sessionId);
     }
-    config.headers = {
-      ...config.headers,
-      'X-Session-Id': sessionId,
-    };
+    const headers = config.headers;
+    if (headers && typeof (headers as { set?: (key: string, value: string) => void }).set === 'function') {
+      (headers as { set: (key: string, value: string) => void }).set('X-Session-Id', sessionId);
+    } else {
+      config.headers = {
+        ...(headers ?? {}),
+        'X-Session-Id': sessionId,
+      };
+    }
   }
   return config;
 });
