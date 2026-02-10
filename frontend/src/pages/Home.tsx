@@ -57,16 +57,22 @@ const Home: React.FC = () => {
               Hey, I'm $BizMart. I help tokenize ideas, businesses, and even careers. Ready?
             </div>
             <div className="rounded-2xl bg-emerald-400/80 px-4 py-3 text-slate-900">
-              Type: Business — Name: BizFun AI — Socials: https://x.com/bizfunai
+              Business
             </div>
             <div className="rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3">
-              Great. What’s the short pitch you’d use on X?
+              What is the project name?
+            </div>
+            <div className="rounded-2xl bg-emerald-400/80 px-4 py-3 text-slate-900">
+              BizFun AI
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3">
+              Give a short pitch (2–3 sentences).
             </div>
             <div className="rounded-2xl bg-emerald-400/80 px-4 py-3 text-slate-900">
               We’re building an AI agent for prediction markets.
             </div>
           </div>
-          <p className="mt-4 text-xs text-slate-500">This is a preview transcript. Open the Terminal for the live session.</p>
+          <p className="mt-4 text-xs text-slate-500">This is a preview transcript. Open the Terminal for the guided session.</p>
         </div>
       </section>
 
@@ -77,24 +83,14 @@ const Home: React.FC = () => {
 {`bizmart --help
 
 USAGE:
-  Answer in one message, label each field:
+  One question at a time.
+  Use the buttons for choices.
+  Press Enter to send.
+  Shift+Enter adds a new line.
 
-  Type: Business
-  Name: BizFun AI
-  Socials: https://x.com/bizfunai
-  Description: We’re building an AI agent for prediction markets.
-  Audience/Value: Startup founders & crypto builders; automated market creation.
-  Stage: Building
-  Prediction: Revenue growth
-  Question: Will we reach $3k MRR in 30 days?
-  Duration: 14 days
-  Chain: Solana
-  Vibe: Serious
-  Marketing: Chaos mode
-  Wallet: <USDC address>
-
-TIP:
-  You can send all fields at once, then type: confirm`}
+NOTES:
+  Socials and Marketing are optional.
+  You can skip them anytime.`}
           </pre>
         </div>
 
