@@ -100,7 +100,10 @@ class BizMartAgent:
         if ("PAID" in user_input.upper() or "LAUNCH" in user_input.upper() or "CONFIRM" in user_input.upper()) and self._ready_to_launch():
             return await self._launch_sequence()
         # Hybrid flow: store data deterministically, but use LLM to add tone.
-        self._store_answer(user_input)
+        # Strict mode: enforce one labeled field per message
+        strict_result = self._store_answer_strict(user_input)
+        if strict_result:
+            return strict_result
         self._fast_forward_step()
 
         # If ready, return summary
@@ -168,43 +171,7 @@ class BizMartAgent:
         # Parse labeled input to reduce strictness
         lowered = user_input.lower()
         # Parse labeled lines like "Name: BizFun AI"
-        lines = [line.strip() for line in user_input.splitlines() if line.strip()]
-        label_map = {
-            "type": "type",
-            "name": "name",
-            "socials": "socials",
-            "description": "description",
-            "audience": "value_audience",
-            "value": "value_audience",
-            "stage": "stage",
-            "prediction": "prediction_type",
-            "question": "prediction_question",
-            "duration": "duration",
-            "chain": "chain",
-            "vibe": "vibe",
-            "marketing": "marketing",
-            "wallet": "wallet",
-            "settlement": "wallet",
-        }
-        for line in lines:
-            if ":" in line:
-                label, value = line.split(":", 1)
-                key = label_map.get(label.strip().lower())
-                if key and value.strip():
-                    self.collected_data[key] = value.strip()
-
-        if "twitter" in lowered or "http" in lowered:
-            self.collected_data["socials"] = user_input.strip()
-        if "will we" in lowered or "?" in lowered:
-            self.collected_data["prediction_question"] = user_input.strip()
-        if "duration" in lowered and any(ch.isdigit() for ch in lowered):
-            self.collected_data["duration"] = user_input.strip()
-        if "solana" in lowered or "base" in lowered or "bsc" in lowered or "monad" in lowered:
-            self.collected_data["chain"] = user_input.strip()
-        if "meme" in lowered or "serious" in lowered or "experimental" in lowered:
-            self.collected_data["vibe"] = user_input.strip()
-        if "wallet" in lowered or "usdc" in lowered:
-            self.collected_data["wallet"] = user_input.strip()
+        # Non-strict parsing removed in strict mode
 
     def _fast_forward_step(self):
         # Move step to the first missing field
@@ -252,6 +219,43 @@ class BizMartAgent:
         )
         return summary
 
+    def _store_answer_strict(self, user_input: str) -> str | None:
+        import re
+        label_pattern = re.compile(
+            r"^\s*(Type|Name|Socials|Description|Audience/Value|Audience|Value|Stage|Prediction|Question|Duration|Chain|Vibe|Marketing|Wallet|Settlement)\s*:\s*(.+)$",
+            re.IGNORECASE,
+        )
+        lines = [line.strip() for line in user_input.splitlines() if line.strip()]
+        if len(lines) != 1:
+            return "Please answer one field at a time in the format: Field: value"
+        match = label_pattern.match(lines[0])
+        if not match:
+            return "Please use the format: Field: value (e.g., Name: BizFun AI)"
+        label = match.group(1).strip().lower()
+        value = match.group(2).strip()
+        label_map = {
+            "type": "type",
+            "name": "name",
+            "socials": "socials",
+            "description": "description",
+            "audience": "value_audience",
+            "value": "value_audience",
+            "audience/value": "value_audience",
+            "stage": "stage",
+            "prediction": "prediction_type",
+            "question": "prediction_question",
+            "duration": "duration",
+            "chain": "chain",
+            "vibe": "vibe",
+            "marketing": "marketing",
+            "wallet": "wallet",
+            "settlement": "wallet",
+        }
+        key = label_map.get(label)
+        if not key:
+            return "Unknown field. Please use a supported label."
+        self.collected_data[key] = value
+        return None
     def get_state(self) -> dict:
         order = [
             "type",
