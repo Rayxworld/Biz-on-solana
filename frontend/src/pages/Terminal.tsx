@@ -328,36 +328,47 @@ const Terminal: React.FC = () => {
         )}
 
         <div className="border-t border-white/10 bg-slate-950/60 px-5 py-4">
-          <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3">
-            <span className="text-lg font-semibold text-emerald-300">$</span>
-            <div className="flex-1 space-y-2">
-              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400">{currentStep.label}</div>
-
-              {currentStep.kind === 'select' && (
-                <div className="flex flex-wrap gap-2">
-                  {currentStep.options?.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => handleOptionClick(option)}
-                      className="rounded-full border border-white/10 bg-slate-900/60 px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-white/10"
-                    >
-                      {option}
-                    </button>
-                  ))}
-                  {currentStep.optional && (
-                    <button
-                      type="button"
-                      onClick={handleSkip}
-                      className="rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.2em] text-slate-300 hover:bg-white/10"
-                    >
-                      Skip
-                    </button>
-                  )}
-                </div>
+          <div className="rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-lg font-semibold text-emerald-300">$</span>
+              <span className="text-[10px] uppercase tracking-[0.3em] text-slate-400">{currentStep.label}</span>
+              <div className="flex-1 min-w-[220px] text-sm text-slate-200">{currentStep.prompt}</div>
+              {currentStep.kind === 'confirm' && (
+                <button
+                  onClick={handleSend}
+                  className="rounded-full bg-emerald-400 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-slate-900 transition hover:bg-emerald-300"
+                >
+                  Confirm
+                </button>
               )}
+            </div>
 
-              {currentStep.kind === 'text' && (
+            {currentStep.kind === 'select' && (
+              <div className="flex flex-wrap gap-2">
+                {currentStep.options?.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => handleOptionClick(option)}
+                    className="rounded-full border border-white/10 bg-slate-900/60 px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-white/10"
+                  >
+                    {option}
+                  </button>
+                ))}
+                {currentStep.optional && (
+                  <button
+                    type="button"
+                    onClick={handleSkip}
+                    className="rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.2em] text-slate-300 hover:bg-white/10"
+                  >
+                    Skip
+                  </button>
+                )}
+              </div>
+            )}
+
+            {currentStep.kind === 'text' && (
+              <div className="flex flex-wrap items-start gap-3">
                 <textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -368,47 +379,30 @@ const Terminal: React.FC = () => {
                     }
                   }}
                   placeholder={currentStep.placeholder ?? 'Type your answer...'}
-                  className="w-full bg-transparent text-sm text-slate-100 placeholder:text-slate-600 outline-none resize-none"
-                  rows={3}
+                  className="flex-1 min-w-[240px] bg-transparent text-sm text-slate-100 placeholder:text-slate-600 outline-none resize-none rounded-xl border border-white/10 px-3 py-2"
+                  rows={2}
                 />
-              )}
-
-              {currentStep.kind === 'confirm' && (
-                <div className="text-sm text-slate-200">Everything looks good. Hit confirm to launch.</div>
-              )}
-            </div>
-
-            {currentStep.kind === 'text' && (
-              <div className="flex flex-col gap-2">
-                <button
-                  onClick={handleSend}
-                  disabled={!input.trim()}
-                  className="rounded-full bg-emerald-400 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-slate-900 transition hover:bg-emerald-300 disabled:opacity-40"
-                >
-                  Send
-                </button>
-                {currentStep.optional && (
+                <div className="flex items-center gap-2">
                   <button
-                    type="button"
-                    onClick={handleSkip}
-                    className="rounded-full border border-white/10 px-3 py-2 text-[10px] uppercase tracking-[0.3em] text-slate-300 hover:bg-white/10"
+                    onClick={handleSend}
+                    disabled={!input.trim()}
+                    className="rounded-full bg-emerald-400 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-slate-900 transition hover:bg-emerald-300 disabled:opacity-40"
                   >
-                    Skip
+                    Send
                   </button>
-                )}
+                  {currentStep.optional && (
+                    <button
+                      type="button"
+                      onClick={handleSkip}
+                      className="rounded-full border border-white/10 px-3 py-2 text-[10px] uppercase tracking-[0.3em] text-slate-300 hover:bg-white/10"
+                    >
+                      Skip
+                    </button>
+                  )}
+                </div>
               </div>
             )}
-
-            {currentStep.kind === 'confirm' && (
-              <button
-                onClick={handleSend}
-                className="rounded-full bg-emerald-400 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-slate-900 transition hover:bg-emerald-300"
-              >
-                Confirm
-              </button>
-            )}
           </div>
-          <p className="mt-2 text-xs text-slate-500">{currentStep.prompt}</p>
         </div>
       </div>
 
