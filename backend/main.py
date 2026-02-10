@@ -79,9 +79,17 @@ class ClaimWinningsRequest(BaseModel):
     vault_usdc: str
     user_position: str
 
-# Shared agent instance (for demo/prototype simplicity)
-# In production, use session management
-agent = BizMartAgent()
+_agents: dict[str, BizMartAgent] = {}
+
+def _get_session_id(request: Request) -> str:
+    return request.headers.get("x-session-id") or request.headers.get("X-Session-Id") or "default"
+
+def _get_agent(session_id: str) -> BizMartAgent:
+    agent = _agents.get(session_id)
+    if agent is None:
+        agent = BizMartAgent()
+        _agents[session_id] = agent
+    return agent
 
 @app.get("/")
 async def root():
@@ -92,7 +100,7 @@ async def root():
     }
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(request: ChatRequest):
+async def chat_endpoint(request: ChatRequest, http_request: Request):
     """
     Main chat endpoint for interacting with the BizMart agent
     """
@@ -100,6 +108,7 @@ async def chat_endpoint(request: ChatRequest):
         if not request.message or not request.message.strip():
             raise HTTPException(status_code=400, detail="Message cannot be empty")
         
+        agent = _get_agent(_get_session_id(http_request))
         response_text = await agent.chat(request.message)
         return ChatResponse(response=response_text)
     except Exception as e:
@@ -161,6 +170,7 @@ async def get_program_status():
     """
     Check deployed Solana program status
     """
+    agent = _get_agent("system")
     return await agent.orchestrator.get_program_status()
 
 @app.get("/program/accounts")
@@ -168,6 +178,7 @@ async def get_program_accounts():
     """
     List program-owned accounts (read-only)
     """
+    agent = _get_agent("system")
     return await agent.orchestrator.get_program_accounts()
 
 @app.post("/program/pdas")
@@ -175,6 +186,7 @@ async def get_program_pdas(request: PdaRequest):
     """
     Derive PDAs for market, user position, and vault.
     """
+    agent = _get_agent("system")
     result = {
         "market": agent.orchestrator.derive_market_pda(request.market_id),
         "vault": agent.orchestrator.derive_vault_pda(request.market_id),
@@ -191,6 +203,7 @@ async def create_market(request: CreateMarketRequest):
     """
     Initialize a new market on-chain (server signer).
     """
+    agent = _get_agent("system")
     return await agent.orchestrator.initialize_market(request.question, request.duration)
 
 @app.post("/market/resolve")
@@ -198,6 +211,7 @@ async def resolve_market(request: ResolveMarketRequest):
     """
     Resolve a market on-chain (server signer).
     """
+    agent = _get_agent("system")
     return await agent.orchestrator.resolve_market(request.market_pubkey, request.outcome)
 
 @app.post("/market/bet")
@@ -205,6 +219,7 @@ async def place_bet(request: PlaceBetRequest):
     """
     Place a bet on-chain (server signer for payer only).
     """
+    agent = _get_agent("system")
     return await agent.orchestrator.place_bet(
         request.market_pubkey,
         request.user_pubkey,
@@ -220,6 +235,7 @@ async def claim_winnings(request: ClaimWinningsRequest):
     """
     Claim winnings on-chain (server signer for payer only).
     """
+    agent = _get_agent("system")
     return await agent.orchestrator.claim_winnings(
         request.market_pubkey,
         request.user_pubkey,
@@ -229,19 +245,20 @@ async def claim_winnings(request: ClaimWinningsRequest):
     )
 
 @app.post("/reset")
-async def reset_agent():
+async def reset_agent(http_request: Request):
     """
     Reset the agent conversation (for testing)
     """
-    global agent
-    agent = BizMartAgent()
-    return {"message": "Agent reset successfully"}
+    session_id = _get_session_id(http_request)
+    _agents[session_id] = BizMartAgent()
+    return {"message": f"Agent reset successfully for session {session_id}"}
 
 @app.get("/state")
-async def get_state():
+async def get_state(http_request: Request):
     """
     Get current collection state for UI form view.
     """
+    agent = _get_agent(_get_session_id(http_request))
     return agent.get_state()
 
 if __name__ == "__main__":
