@@ -12,6 +12,7 @@ const Terminal: React.FC = () => {
   ]);
   const [input, setInput] = useState('');
   const [currentField, setCurrentField] = useState('Type');
+  const [currentPrompt, setCurrentPrompt] = useState('Type: Business | Startup | Idea | Career | Experiment');
   const [isTyping, setIsTyping] = useState(false);
   const [showJump, setShowJump] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
@@ -53,18 +54,39 @@ const Terminal: React.FC = () => {
     'Wallet',
   ];
 
+  const promptMap: Record<string, string> = {
+    Type: 'Type: Business | Startup | Idea | Career | Experiment',
+    Name: 'Name: <project name>',
+    Socials: 'Socials: <X / LinkedIn / website links>',
+    Description: 'Description: <short pitch>',
+    'Audience/Value': 'Audience/Value: <who + value delivered>',
+    Stage: 'Stage: Idea | Building | Launched | Making Money | Growing',
+    Prediction: 'Prediction: Revenue | Sales | Growth | Followers',
+    Question: 'Question: <plain English prediction>',
+    Duration: 'Duration: 7 | 14 | 30 days',
+    Chain: 'Chain: Solana | Base | Monad | BSC',
+    Vibe: 'Vibe: Meme | Serious | Experimental',
+    Marketing: 'Marketing: MoltBook | AI debates | Reply chaos | Chaos mode',
+    Wallet: 'Wallet: <USDC address>',
+  };
+
   const refreshState = async () => {
     try {
       const res = await api.get('/state');
       const missing = res.data?.missing ?? [];
       if (missing.length) {
-        const label = missing[0].replace('_', '/').replace('value/audience', 'Audience/Value');
-        const normalized =
-          label.toLowerCase() === 'value_audience' ? 'Audience/Value' : label.replace(/_/g, ' ');
+        const raw = missing[0].replace('_', ' ');
+        const normalized = raw.toLowerCase() === 'value audience'
+          ? 'Audience/Value'
+          : raw.replace(/\b\w/g, (m: string) => m.toUpperCase());
         const match = fieldOrder.find((f) => f.toLowerCase() === normalized.toLowerCase());
-        if (match) setCurrentField(match);
+        if (match) {
+          setCurrentField(match);
+          setCurrentPrompt(promptMap[match] ?? `${match}:`);
+        }
       } else {
         setCurrentField('Confirm');
+        setCurrentPrompt('Confirm: type confirm to launch');
       }
     } catch {
       // ignore
@@ -73,8 +95,8 @@ const Terminal: React.FC = () => {
 
   const handleSend = async () => {
     if (!input.trim()) return;
-    const prepared = `${currentField}: ${input.trim()}`;
-    const userMsg = { text: prepared, isBot: false };
+    const prepared = input.trim();
+    const userMsg = { text: `${currentField}: ${prepared}`, isBot: false };
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setIsTyping(true);
@@ -174,7 +196,7 @@ const Terminal: React.FC = () => {
           <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-2.5">
             <span className="text-lg font-semibold text-emerald-300">$</span>
             <span className="rounded-xl border border-white/10 bg-slate-900/60 px-2 py-1 text-[10px] uppercase tracking-[0.3em] text-slate-400">
-              {currentField}:
+              {currentField}
             </span>
             <textarea
               value={input}
@@ -185,7 +207,7 @@ const Terminal: React.FC = () => {
                   handleSend();
                 }
               }}
-              placeholder="Type your answer… (Enter to send, Shift+Enter for new line)"
+              placeholder="Type your answer... (Enter to send, Shift+Enter for new line)"
               className="flex-1 bg-transparent text-sm text-slate-100 placeholder:text-slate-600 outline-none resize-none"
               rows={2}
             />
@@ -206,6 +228,7 @@ const Terminal: React.FC = () => {
               </button>
             )}
           </div>
+          <p className="mt-2 text-xs text-slate-500">{currentPrompt}</p>
         </div>
       </div>
 
@@ -216,24 +239,16 @@ const Terminal: React.FC = () => {
 {`bizmart --help
 
 USAGE:
-  Answer in one message, label each field:
+  One field at a time. The label is locked above the input.
+  Just type the value and press Enter.
 
-  Type: Business
-  Name: BizFun AI
-  Socials: https://x.com/bizfunai
-  Description: We’re building an AI agent for prediction markets.
-  Audience/Value: Startup founders & crypto builders; automated market creation.
-  Stage: Building
-  Prediction: Revenue growth
-  Question: Will we reach $3k MRR in 30 days?
-  Duration: 14 days
-  Chain: Solana
-  Vibe: Serious
-  Marketing: Chaos mode
-  Wallet: <USDC address>
+  Example:
+  Type -> Business
+  Name -> BizFun AI
+  Socials -> https://x.com/bizfunai
 
 TIP:
-  You can send all fields at once, then type: confirm`}
+  Optional fields (Socials, Marketing) can be skipped with: skip`}
           </pre>
         </div>
       </aside>

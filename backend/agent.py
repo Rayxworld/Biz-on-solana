@@ -222,60 +222,12 @@ class BizMartAgent:
 
     def _store_answer_strict(self, user_input: str) -> str | None:
         import re
-        label_pattern = re.compile(
-            r"^\s*(Type|Name|Socials|Social|Description|Audience/Value|Audience|Value|Stage|Prediction|Question|Duration|Chain|Vibe|Marketing|Wallet|Settlement)\s*:\s*(.+)$",
-            re.IGNORECASE,
-        )
         lines = [line.strip() for line in user_input.splitlines() if line.strip()]
         if len(lines) != 1:
-            return "Please answer one field at a time in the format: Field: value"
-        match = label_pattern.match(lines[0])
-        if not match:
-            # Allow raw link for socials if socials is the expected field
-            expected_order = [
-                "type",
-                "name",
-                "socials",
-                "description",
-                "value_audience",
-                "stage",
-                "prediction_type",
-                "prediction_question",
-                "duration",
-                "chain",
-                "vibe",
-                "marketing",
-                "wallet",
-            ]
-            expected_key = expected_order[self.step - 1] if 1 <= self.step <= len(expected_order) else None
-            if expected_key == "socials" and ("http://" in lines[0] or "https://" in lines[0] or "x.com" in lines[0] or "twitter.com" in lines[0]):
-                self.collected_data["socials"] = lines[0]
-                return None
-            return "Strict mode: use Field: value (e.g., Type: Business). No extra fields in one line."
-        label = match.group(1).strip().lower()
-        value = match.group(2).strip()
-        label_map = {
-            "type": "type",
-            "name": "name",
-            "social": "socials",
-            "socials": "socials",
-            "description": "description",
-            "audience": "value_audience",
-            "value": "value_audience",
-            "audience/value": "value_audience",
-            "stage": "stage",
-            "prediction": "prediction_type",
-            "question": "prediction_question",
-            "duration": "duration",
-            "chain": "chain",
-            "vibe": "vibe",
-            "marketing": "marketing",
-            "wallet": "wallet",
-            "settlement": "wallet",
-        }
-        key = label_map.get(label)
-        if not key:
-            return "Unknown field. Please use a supported label."
+            return "Please answer one field at a time. Use Shift+Enter for new line."
+        # Accept either "Label: value" or raw value, but always apply to current field
+        raw = lines[0]
+        value = raw.split(":", 1)[1].strip() if ":" in raw else raw.strip()
         # Enforce the expected field for the current step
         expected_order = [
             "type",
@@ -293,16 +245,15 @@ class BizMartAgent:
             "wallet",
         ]
         expected_key = expected_order[self.step - 1] if 1 <= self.step <= len(expected_order) else None
-        if expected_key and key != expected_key:
-            label_display = self.flow_questions[self.step - 1]
-            return f"Please answer the current field only: {label_display}"
+        if not expected_key:
+            return "Type confirm to launch."
         optional_fields = {"socials", "marketing"}
         if value.lower() in {"skip", "none", "n/a"}:
-            if key in optional_fields:
-                self.collected_data[key] = "skipped"
+            if expected_key in optional_fields:
+                self.collected_data[expected_key] = "skipped"
                 return None
             return "This field is required. Please provide a value."
-        self.collected_data[key] = value
+        self.collected_data[expected_key] = value
         return None
     def get_state(self) -> dict:
         order = [
