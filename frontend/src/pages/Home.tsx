@@ -26,6 +26,7 @@ const Home: React.FC = () => {
 
   useEffect(() => {
     api.get('/stats').then((res) => setStats(res.data)).catch(() => setStats(null));
+    api.post('/reset').catch(() => undefined);
   }, []);
 
   useEffect(() => {

@@ -60,6 +60,7 @@ class BizMartAgent:
             "vibe": None,
             "marketing": None,
             "wallet": None,
+            "chains": [],
         }
         # Step index (1-based) for deterministic flow after intro
         self.step = 1
@@ -78,9 +79,20 @@ class BizMartAgent:
             "13️⃣ Settlement: Drop a USDC address for settlement.",
             "14️⃣ Final confirm: I’ll summarize—reply 'confirm' to launch and fund the BizFun wallet with 10 USDC fee."
         ]
+        self._intro_sent = True
 
     async def chat(self, user_input: str):
         self.chat_history.append(HumanMessage(content=user_input))
+
+        # Allow explicit reset
+        if user_input.strip().lower() in {"reset", "start over", "restart"}:
+            self.reset_state()
+            return self.flow_questions[0]
+
+        # If user says ready at the start and we have little data, reset to first question
+        if "ready" in user_input.lower() and self._filled_count() <= 1:
+            self.reset_state()
+            return self.flow_questions[0]
         
         # Check if we should launch
         if "TRIGGER_LAUNCH" in user_input.upper():
@@ -111,6 +123,28 @@ class BizMartAgent:
     def _ready_to_launch(self) -> bool:
         required = ["name", "wallet", "prediction_question", "duration", "chain"]
         return all(self.collected_data.get(k) for k in required)
+
+    def _filled_count(self) -> int:
+        return sum(1 for v in self.collected_data.values() if v)
+
+    def reset_state(self):
+        self.collected_data = {
+            "type": None,
+            "name": None,
+            "socials": None,
+            "description": None,
+            "value_audience": None,
+            "stage": None,
+            "prediction_type": None,
+            "prediction_question": None,
+            "duration": None,
+            "chain": None,
+            "vibe": None,
+            "marketing": None,
+            "wallet": None,
+            "chains": [],
+        }
+        self.step = 1
 
     def _store_answer(self, user_input: str):
         # Store answer from previous step based on step index
@@ -234,6 +268,11 @@ class BizMartAgent:
         paid = await self.orchestrator.check_fee_payment(self.collected_data.get("wallet", "Unknown"))
         if not paid:
             return "Hold up! I don't see the 10 USDC fee in the treasury yet. Double check the transaction? 🧐"
+
+        # Ensure chains list from selected chain
+        if not self.collected_data.get("chains"):
+            chain = self.collected_data.get("chain") or "Solana"
+            self.collected_data["chains"] = [chain]
 
         # 2. Deploy on Solana
         sol_res = await self.orchestrator.deploy_on_solana(self.collected_data)
