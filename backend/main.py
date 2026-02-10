@@ -31,6 +31,34 @@ class Market(BaseModel):
     yes_percentage: Optional[int] = 50
     no_percentage: Optional[int] = 50
 
+class PdaRequest(BaseModel):
+    market_id: str
+    user_pubkey: Optional[str] = None
+
+class CreateMarketRequest(BaseModel):
+    question: str
+    duration: int
+
+class ResolveMarketRequest(BaseModel):
+    market_pubkey: str
+    outcome: bool
+
+class PlaceBetRequest(BaseModel):
+    market_pubkey: str
+    user_pubkey: str
+    user_usdc: str
+    vault_usdc: str
+    user_position: str
+    amount: int
+    bet_on_yes: bool
+
+class ClaimWinningsRequest(BaseModel):
+    market_pubkey: str
+    user_pubkey: str
+    user_usdc: str
+    vault_usdc: str
+    user_position: str
+
 # Shared agent instance (for demo/prototype simplicity)
 # In production, use session management
 agent = BizMartAgent()
@@ -107,6 +135,78 @@ async def get_stats():
         "total_traders": 1834,
         "markets_resolved": 89
     }
+
+@app.get("/program/status")
+async def get_program_status():
+    """
+    Check deployed Solana program status
+    """
+    return await agent.orchestrator.get_program_status()
+
+@app.get("/program/accounts")
+async def get_program_accounts():
+    """
+    List program-owned accounts (read-only)
+    """
+    return await agent.orchestrator.get_program_accounts()
+
+@app.post("/program/pdas")
+async def get_program_pdas(request: PdaRequest):
+    """
+    Derive PDAs for market, user position, and vault.
+    """
+    result = {
+        "market": agent.orchestrator.derive_market_pda(request.market_id),
+        "vault": agent.orchestrator.derive_vault_pda(request.market_id),
+    }
+    if request.user_pubkey:
+        result["user_position"] = agent.orchestrator.derive_user_position_pda(
+            request.market_id,
+            request.user_pubkey
+        )
+    return result
+
+@app.post("/market/create")
+async def create_market(request: CreateMarketRequest):
+    """
+    Initialize a new market on-chain (server signer).
+    """
+    return await agent.orchestrator.initialize_market(request.question, request.duration)
+
+@app.post("/market/resolve")
+async def resolve_market(request: ResolveMarketRequest):
+    """
+    Resolve a market on-chain (server signer).
+    """
+    return await agent.orchestrator.resolve_market(request.market_pubkey, request.outcome)
+
+@app.post("/market/bet")
+async def place_bet(request: PlaceBetRequest):
+    """
+    Place a bet on-chain (server signer for payer only).
+    """
+    return await agent.orchestrator.place_bet(
+        request.market_pubkey,
+        request.user_pubkey,
+        request.user_usdc,
+        request.vault_usdc,
+        request.user_position,
+        request.amount,
+        request.bet_on_yes,
+    )
+
+@app.post("/market/claim")
+async def claim_winnings(request: ClaimWinningsRequest):
+    """
+    Claim winnings on-chain (server signer for payer only).
+    """
+    return await agent.orchestrator.claim_winnings(
+        request.market_pubkey,
+        request.user_pubkey,
+        request.user_usdc,
+        request.vault_usdc,
+        request.user_position,
+    )
 
 @app.post("/reset")
 async def reset_agent():

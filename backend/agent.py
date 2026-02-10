@@ -9,7 +9,20 @@ load_dotenv()
 
 class BizMartAgent:
     def __init__(self):
-        self.llm = ChatOpenAI(model="gpt-4o", api_key=os.getenv("OPENAI_API_KEY"))
+        openrouter_key = os.getenv("OPENROUTER_API_KEY")
+        openrouter_base = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+        openrouter_model = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b:free")
+        if not openrouter_key:
+            raise ValueError("OPENROUTER_API_KEY is not set in .env")
+        self.llm = ChatOpenAI(
+            model=openrouter_model,
+            api_key=openrouter_key,
+            base_url=openrouter_base,
+            default_headers={
+                "HTTP-Referer": os.getenv("OPENROUTER_SITE_URL", "http://localhost:8000"),
+                "X-Title": os.getenv("OPENROUTER_APP_NAME", "BizFun"),
+            },
+        )
         self.orchestrator = BizMartOrchestrator()
         self.system_prompt = (
             "You are $BizMart, a savvy AI agent helping tokenize ideas, businesses, and careers. "
@@ -48,14 +61,30 @@ class BizMartAgent:
         self.chat_history.append(HumanMessage(content=user_input))
         
         # Check if we should launch
-        if "TRIGGER_LAUNCH" in user_input.upper() or "PAID" in user_input.upper() or "LAUNCH" in user_input.upper():
+        if "TRIGGER_LAUNCH" in user_input.upper():
+            return await self._launch_sequence()
+        if ("PAID" in user_input.upper() or "LAUNCH" in user_input.upper()) and self._ready_to_launch():
             return await self._launch_sequence()
 
-        response = await self.llm.ainvoke(self.chat_history)
+        try:
+            response = await self.llm.ainvoke(self.chat_history)
+        except Exception as e:
+            msg = str(e)
+            if "No endpoints found matching your data policy" in msg:
+                return (
+                    "OpenRouter blocked this request due to your privacy settings for free models. "
+                    "Fix: visit https://openrouter.ai/settings/privacy and enable free model usage, "
+                    "or switch to a paid model in OPENROUTER_MODEL (e.g., openai/gpt-4o-mini)."
+                )
+            raise
         self.chat_history.append(response)
         self._extract_data_attempt(user_input, response.content)
         
         return response.content
+
+    def _ready_to_launch(self) -> bool:
+        required = ["name", "wallet", "prediction_question", "duration"]
+        return all(self.collected_data.get(k) for k in required)
 
     def _extract_data_attempt(self, user_text: str, bot_text: str):
         """Basic parsing for demo; in production use LLM function calling"""

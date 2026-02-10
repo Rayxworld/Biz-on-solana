@@ -2,9 +2,13 @@ import os
 import json
 import asyncio
 from solana.rpc.async_api import AsyncClient
+from solana.rpc.types import TxOpts
+from solders.system_program import ID as SYS_PROGRAM_ID
+from solders.pubkey import Pubkey as _Pubkey
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
 from dotenv import load_dotenv
+from anchorpy import Context, Idl, Program, Provider, Wallet
 
 load_dotenv()
 
@@ -16,6 +20,18 @@ class BizMartOrchestrator:
     def __init__(self):
         self.rpc_url = os.getenv("SOLANA_RPC_URL", "https://api.devnet.solana.com")
         self.client = AsyncClient(self.rpc_url)
+        self.program_id_str = os.getenv("SOLANA_PROGRAM_ID")
+        self.program_id = None
+        self.idl_path = os.getenv(
+            "IDL_PATH",
+            os.path.join(os.path.dirname(__file__), "idl", "bizfun_market.json")
+        )
+        self._program = None
+        if self.program_id_str:
+            try:
+                self.program_id = Pubkey.from_string(self.program_id_str)
+            except Exception as e:
+                print(f"Warning: Invalid SOLANA_PROGRAM_ID: {e}")
         
         # Load keypair from environment
         key_str = os.getenv("SOLANA_PRIVATE_KEY")
@@ -29,6 +45,27 @@ class BizMartOrchestrator:
         else:
             print("Warning: No SOLANA_PRIVATE_KEY in .env, using random keypair")
             self.payer = Keypair()
+
+        # SPL Token Program (official)
+        self.token_program_id = _Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+
+    async def _get_program(self) -> Program:
+        if self._program:
+            return self._program
+        if not self.program_id:
+            raise ValueError("SOLANA_PROGRAM_ID not set or invalid")
+        if not os.path.exists(self.idl_path):
+            raise FileNotFoundError(f"IDL not found at {self.idl_path}")
+
+        with open(self.idl_path, "r", encoding="utf-8") as f:
+            idl = Idl.from_json(f.read())
+
+        provider = Provider(self.client, Wallet(self.payer), opts=TxOpts(preflight_commitment="confirmed"))
+        self._program = Program(idl, self.program_id, provider)
+        return self._program
+
+    def _pubkey(self, value: str) -> Pubkey:
+        return Pubkey.from_string(value)
 
     async def check_fee_payment(self, user_wallet: str) -> bool:
         """
@@ -73,8 +110,9 @@ class BizMartOrchestrator:
         # For MVP/demo, return mock data
         await asyncio.sleep(1)  # Simulate deployment time
         
-        token_mint = f"Biz{data.get('name', 'Token')[:3].upper()}Mock123"
-        market_address = f"Market_{data.get('name', 'Default').replace(' ', '_')}_ABC123"
+        name = data.get('name') or 'Market'
+        token_mint = f"Biz{name[:3].upper()}Mock123"
+        market_address = f"Market_{name.replace(' ', '_')}_ABC123"
         
         return {
             "chain": "Solana",
@@ -147,6 +185,168 @@ class BizMartOrchestrator:
             "status": "active",
             "end_time": 1234567890
         }
+
+    async def get_program_status(self) -> dict:
+        """
+        Verify program account exists and basic metadata.
+        """
+        if not self.program_id:
+            return {"program_id": self.program_id_str, "exists": False, "error": "SOLANA_PROGRAM_ID not set or invalid"}
+
+        resp = await self.client.get_account_info(self.program_id)
+        value = resp.value
+        if value is None:
+            return {"program_id": str(self.program_id), "exists": False}
+
+        return {
+            "program_id": str(self.program_id),
+            "exists": True,
+            "executable": value.executable,
+            "owner": str(value.owner),
+            "lamports": value.lamports,
+        }
+
+    async def get_program_accounts(self) -> dict:
+        """
+        Fetch program-owned accounts (read-only).
+        """
+        if not self.program_id:
+            return {"program_id": self.program_id_str, "accounts": [], "error": "SOLANA_PROGRAM_ID not set or invalid"}
+
+        resp = await self.client.get_program_accounts(self.program_id)
+        accounts = [
+            {"pubkey": str(a.pubkey), "lamports": a.account.lamports, "owner": str(a.account.owner)}
+            for a in resp.value
+        ]
+        return {"program_id": str(self.program_id), "accounts": accounts}
+
+    def derive_market_pda(self, market_id: str) -> dict:
+        """
+        Derive Market PDA using seeds: ["market", market_id]
+        """
+        if not self.program_id:
+            return {"error": "SOLANA_PROGRAM_ID not set or invalid"}
+        seeds = [b"market", market_id.encode("utf-8")]
+        pda, bump = Pubkey.find_program_address(seeds, self.program_id)
+        return {"pda": str(pda), "bump": bump}
+
+    def derive_user_position_pda(self, market_id: str, user_pubkey: str) -> dict:
+        """
+        Derive UserPosition PDA using seeds: ["position", market_id, user_pubkey]
+        """
+        if not self.program_id:
+            return {"error": "SOLANA_PROGRAM_ID not set or invalid"}
+        user_pk = Pubkey.from_string(user_pubkey)
+        seeds = [b"position", market_id.encode("utf-8"), bytes(user_pk)]
+        pda, bump = Pubkey.find_program_address(seeds, self.program_id)
+        return {"pda": str(pda), "bump": bump}
+
+    def derive_vault_pda(self, market_id: str) -> dict:
+        """
+        Derive USDC Vault PDA using seeds: ["vault", market_id]
+        """
+        if not self.program_id:
+            return {"error": "SOLANA_PROGRAM_ID not set or invalid"}
+        seeds = [b"vault", market_id.encode("utf-8")]
+        pda, bump = Pubkey.find_program_address(seeds, self.program_id)
+        return {"pda": str(pda), "bump": bump}
+
+    async def initialize_market(self, question: str, duration: int) -> dict:
+        """
+        Initialize a new market using the on-chain program.
+        """
+        program = await self._get_program()
+        market_kp = Keypair()
+        ctx = Context(
+            accounts={
+                "market": market_kp.pubkey(),
+                "creator": self.payer.pubkey(),
+                "system_program": SYS_PROGRAM_ID,
+            },
+            signers=[self.payer, market_kp],
+        )
+
+        rpc = program.rpc
+        method = rpc["initialize_market"] if "initialize_market" in rpc else rpc["initializeMarket"]
+        sig = await method(question, duration, ctx=ctx)
+        return {"signature": str(sig), "market_pubkey": str(market_kp.pubkey())}
+
+    async def resolve_market(self, market_pubkey: str, outcome: bool) -> dict:
+        program = await self._get_program()
+        ctx = Context(
+            accounts={
+                "market": self._pubkey(market_pubkey),
+                "authority": self.payer.pubkey(),
+            },
+            signers=[self.payer],
+        )
+        rpc = program.rpc
+        method = rpc["resolve_market"] if "resolve_market" in rpc else rpc["resolveMarket"]
+        sig = await method(outcome, ctx=ctx)
+        return {"signature": str(sig), "market_pubkey": market_pubkey}
+
+    async def place_bet(
+        self,
+        market_pubkey: str,
+        user_pubkey: str,
+        user_usdc: str,
+        vault_usdc: str,
+        user_position: str,
+        amount: int,
+        bet_on_yes: bool,
+    ) -> dict:
+        """
+        Place a bet. For now this only supports server signing when user_pubkey is the payer.
+        """
+        if str(self.payer.pubkey()) != user_pubkey:
+            return {"error": "Backend can only sign for payer. Use client-side signing for user bets."}
+        program = await self._get_program()
+        ctx = Context(
+            accounts={
+                "market": self._pubkey(market_pubkey),
+                "user": self.payer.pubkey(),
+                "user_usdc": self._pubkey(user_usdc),
+                "vault_usdc": self._pubkey(vault_usdc),
+                "user_position": self._pubkey(user_position),
+                "token_program": self.token_program_id,
+                "system_program": SYS_PROGRAM_ID,
+            },
+            signers=[self.payer],
+        )
+        rpc = program.rpc
+        method = rpc["place_bet"] if "place_bet" in rpc else rpc["placeBet"]
+        sig = await method(amount, bet_on_yes, ctx=ctx)
+        return {"signature": str(sig), "market_pubkey": market_pubkey}
+
+    async def claim_winnings(
+        self,
+        market_pubkey: str,
+        user_pubkey: str,
+        user_usdc: str,
+        vault_usdc: str,
+        user_position: str,
+    ) -> dict:
+        """
+        Claim winnings. Only supports server signing when user_pubkey is the payer.
+        """
+        if str(self.payer.pubkey()) != user_pubkey:
+            return {"error": "Backend can only sign for payer. Use client-side signing for user claims."}
+        program = await self._get_program()
+        ctx = Context(
+            accounts={
+                "market": self._pubkey(market_pubkey),
+                "user": self.payer.pubkey(),
+                "user_usdc": self._pubkey(user_usdc),
+                "vault_usdc": self._pubkey(vault_usdc),
+                "user_position": self._pubkey(user_position),
+                "token_program": self.token_program_id,
+            },
+            signers=[self.payer],
+        )
+        rpc = program.rpc
+        method = rpc["claim_winnings"] if "claim_winnings" in rpc else rpc["claimWinnings"]
+        sig = await method(ctx=ctx)
+        return {"signature": str(sig), "market_pubkey": market_pubkey}
 
     async def close(self):
         """Close the RPC client connection"""

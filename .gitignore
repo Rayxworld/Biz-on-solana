@@ -7,7 +7,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Dependencies
+# Dependencies / builds
 node_modules
 dist
 dist-ssr
@@ -64,6 +64,7 @@ test-ledger/
 .vercel
 .cache
 
+# Explicit repo-specific ignores
 backend/.env
 backend/venv/
 backend/__pycache__/
