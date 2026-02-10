@@ -47,15 +47,37 @@ class BizMartAgent:
         )
         self.chat_history = [SystemMessage(content=self.system_prompt)]
         self.collected_data = {
-            "name": None,
             "type": None,
+            "name": None,
+            "socials": None,
             "description": None,
-            "chains": [],
-            "wallet": None,
+            "value_audience": None,
+            "stage": None,
+            "prediction_type": None,
             "prediction_question": None,
             "duration": None,
-            "vibe": None
+            "chain": None,
+            "vibe": None,
+            "marketing": None,
+            "wallet": None,
         }
+        # Step index (1-based) for deterministic flow after intro
+        self.step = 1
+        self.flow_questions = [
+            "2️⃣ Type: What are we tokenizing? (Business / Startup / Idea / Career / Experiment)",
+            "3️⃣ Name & Socials: What should we call it? Drop name + links (X, LinkedIn, website).",
+            "4️⃣ Description: Give me a short pitch (a few sentences) you’d use on X.",
+            "5️⃣ Value & Audience: What exact value do you deliver and who is the core audience?",
+            "6️⃣ Stage: Be honest—what stage are you at? (Idea / Building / Launched / Making Money / Growing)",
+            "7️⃣ Prediction: What should the market predict? (Revenue / Sales / Growth / Followers)",
+            "8️⃣ Specific Question: Write the prediction in plain English (e.g., 'Will this make $3k in 30 days?').",
+            "9️⃣ Duration: 7, 14, or 30 days?",
+            "10️⃣ Chain: Base, Monad, BSC, or Solana?",
+            "11️⃣ Vibe: Meme, Serious, or Experimental?",
+            "12️⃣ Marketing: Can I market this publicly? (MoltBook, AI debates, Reply chaos, Chaos mode)",
+            "13️⃣ Settlement: Drop a USDC address for settlement.",
+            "14️⃣ Final confirm: I’ll summarize—reply 'confirm' to launch and fund the BizFun wallet with 10 USDC fee."
+        ]
 
     async def chat(self, user_input: str):
         self.chat_history.append(HumanMessage(content=user_input))
@@ -63,28 +85,122 @@ class BizMartAgent:
         # Check if we should launch
         if "TRIGGER_LAUNCH" in user_input.upper():
             return await self._launch_sequence()
-        if ("PAID" in user_input.upper() or "LAUNCH" in user_input.upper()) and self._ready_to_launch():
+        if ("PAID" in user_input.upper() or "LAUNCH" in user_input.upper() or "CONFIRM" in user_input.upper()) and self._ready_to_launch():
             return await self._launch_sequence()
+        # Hybrid flow: store data deterministically, but use LLM to add tone.
+        self._store_answer(user_input)
+        self._fast_forward_step()
 
+        # If ready, return summary
+        if self._ready_to_launch():
+            return self._next_question()
+
+        # Otherwise ask the next missing question with LLM flavor
+        base_question = self._next_question()
+        prompt = (
+            "Rewrite the following question in a friendly, energetic tone (1-2 sentences). "
+            "Do not change its meaning or add new questions. Output only the rewritten question.\n\n"
+            f"Question: {base_question}"
+        )
         try:
-            response = await self.llm.ainvoke(self.chat_history)
-        except Exception as e:
-            msg = str(e)
-            if "No endpoints found matching your data policy" in msg:
-                return (
-                    "OpenRouter blocked this request due to your privacy settings for free models. "
-                    "Fix: visit https://openrouter.ai/settings/privacy and enable free model usage, "
-                    "or switch to a paid model in OPENROUTER_MODEL (e.g., openai/gpt-4o-mini)."
-                )
-            raise
-        self.chat_history.append(response)
-        self._extract_data_attempt(user_input, response.content)
-        
-        return response.content
+            response = await self.llm.ainvoke([SystemMessage(content=prompt)])
+            return response.content.strip()
+        except Exception:
+            return base_question
 
     def _ready_to_launch(self) -> bool:
-        required = ["name", "wallet", "prediction_question", "duration"]
+        required = ["name", "wallet", "prediction_question", "duration", "chain"]
         return all(self.collected_data.get(k) for k in required)
+
+    def _store_answer(self, user_input: str):
+        # Store answer from previous step based on step index
+        mapping = {
+            1: "type",
+            2: "name",
+            3: "description",
+            4: "value_audience",
+            5: "stage",
+            6: "prediction_type",
+            7: "prediction_question",
+            8: "duration",
+            9: "chain",
+            10: "vibe",
+            11: "marketing",
+            12: "wallet",
+        }
+        key = mapping.get(self.step)
+        if key:
+            self.collected_data[key] = user_input.strip()
+        # Parse labeled input to reduce strictness
+        lowered = user_input.lower()
+        if "name:" in lowered:
+            self.collected_data["name"] = user_input.split(":", 1)[1].strip()
+        if "twitter" in lowered or "http" in lowered:
+            self.collected_data["socials"] = user_input.strip()
+        if "audience" in lowered or "value" in lowered:
+            self.collected_data["value_audience"] = user_input.strip()
+        if "stage" in lowered:
+            self.collected_data["stage"] = user_input.strip()
+        if "predict" in lowered:
+            self.collected_data["prediction_type"] = user_input.strip()
+        if "will we" in lowered or "?" in lowered:
+            self.collected_data["prediction_question"] = user_input.strip()
+        if "duration" in lowered:
+            self.collected_data["duration"] = user_input.strip()
+        if "chain" in lowered or "solana" in lowered or "base" in lowered or "bsc" in lowered:
+            self.collected_data["chain"] = user_input.strip()
+        if "vibe" in lowered or "meme" in lowered or "serious" in lowered:
+            self.collected_data["vibe"] = user_input.strip()
+        if "marketing" in lowered:
+            self.collected_data["marketing"] = user_input.strip()
+        if "wallet" in lowered or "usdc" in lowered:
+            self.collected_data["wallet"] = user_input.strip()
+
+    def _fast_forward_step(self):
+        # Move step to the first missing field
+        order = [
+            "type",
+            "name",
+            "description",
+            "value_audience",
+            "stage",
+            "prediction_type",
+            "prediction_question",
+            "duration",
+            "chain",
+            "vibe",
+            "marketing",
+            "wallet",
+        ]
+        for i, key in enumerate(order, start=1):
+            if not self.collected_data.get(key):
+                self.step = i
+                return
+        self.step = len(self.flow_questions) + 1
+
+    def _next_question(self) -> str:
+        # Advance step and return next question
+        if self.step < len(self.flow_questions):
+            q = self.flow_questions[self.step - 1]
+            self.step += 1
+            return q
+        # Final summary placeholder
+        summary = (
+            "Summary:\n"
+            f"- Type: {self.collected_data.get('type')}\n"
+            f"- Name: {self.collected_data.get('name')}\n"
+            f"- Description: {self.collected_data.get('description')}\n"
+            f"- Audience/Value: {self.collected_data.get('value_audience')}\n"
+            f"- Stage: {self.collected_data.get('stage')}\n"
+            f"- Prediction: {self.collected_data.get('prediction_question')}\n"
+            f"- Duration: {self.collected_data.get('duration')}\n"
+            f"- Chain: {self.collected_data.get('chain')}\n"
+            f"- Vibe: {self.collected_data.get('vibe')}\n"
+            f"- Marketing: {self.collected_data.get('marketing')}\n"
+            f"- Settlement Wallet: {self.collected_data.get('wallet')}\n\n"
+            "Reply 'confirm' to launch and fund the BizFun wallet with 10 USDC fee."
+        )
+        return summary
 
     def _extract_data_attempt(self, user_text: str, bot_text: str):
         """Basic parsing for demo; in production use LLM function calling"""
