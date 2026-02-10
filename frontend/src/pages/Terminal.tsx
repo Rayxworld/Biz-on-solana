@@ -1,18 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
-
-interface Message {
-  text: string;
-  isBot: boolean;
-}
-
-type StepKind = 'text' | 'select' | 'confirm';
 
 type Step = {
   key: string;
   label: string;
   prompt: string;
-  kind: StepKind;
+  kind: 'text' | 'select';
   options?: string[];
   optional?: boolean;
   placeholder?: string;
@@ -36,7 +29,7 @@ const steps: Step[] = [
   {
     key: 'socials',
     label: 'Socials',
-    prompt: 'Share any socials (X, LinkedIn, website). You can skip this.',
+    prompt: 'Share any socials (X, LinkedIn, website). Optional.',
     kind: 'text',
     optional: true,
     placeholder: 'https://x.com/bizfunai',
@@ -100,7 +93,7 @@ const steps: Step[] = [
   {
     key: 'marketing',
     label: 'Marketing',
-    prompt: 'How should we market this? You can skip this.',
+    prompt: 'How should we market this? Optional.',
     kind: 'select',
     optional: true,
     options: ['MoltBook', 'AI debates', 'Reply chaos', 'Chaos mode'],
@@ -112,130 +105,80 @@ const steps: Step[] = [
     kind: 'text',
     placeholder: 'Your USDC address',
   },
-  {
-    key: 'confirm',
-    label: 'Confirm',
-    prompt: 'Review your details and confirm to launch.',
-    kind: 'confirm',
-  },
 ];
 
-const introMessage =
-  "Hey, I'm $BizMart. I help tokenize ideas, businesses, and even careers and launch their prediction markets. Ready?";
-
 const Terminal: React.FC = () => {
-  const [messages, setMessages] = useState<Message[]>([{ text: introMessage, isBot: true }]);
-  const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [showJump, setShowJump] = useState(false);
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [status, setStatus] = useState<string>('Fill the form, then submit.');
+  const [resultText, setResultText] = useState<string>('');
+  const [resultError, setResultError] = useState<string>('');
+  const [submitting, setSubmitting] = useState(false);
   const [currentKey, setCurrentKey] = useState<string>('type');
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const listRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
 
-  const currentStep = useMemo(() => steps.find((step) => step.key === currentKey) ?? steps[0], [currentKey]);
+  const missingKeys = useMemo(() => {
+    return steps
+      .filter((step) => !step.optional)
+      .map((step) => step.key)
+      .filter((key) => !values[key]);
+  }, [values]);
 
-  const isNearBottom = () => {
-    const el = listRef.current;
-    if (!el) return true;
-    const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
-    return remaining < 120;
+  const updateValue = (key: string, value: string) => {
+    setValues((prev) => ({ ...prev, [key]: value }));
   };
 
-  const scrollToBottom = () => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  };
-
-  useEffect(() => {
-    if (isNearBottom()) {
-      scrollToBottom();
-      setShowJump(false);
-    } else {
-      setShowJump(true);
-    }
-  }, [messages, isTyping]);
-
-  const rebuildTranscript = (nextAnswers: Record<string, string>, nextKey: string) => {
-    const nextMessages: Message[] = [{ text: introMessage, isBot: true }];
-
-    steps.forEach((step) => {
-      if (step.key === 'confirm') {
-        return;
-      }
-      const value = nextAnswers[step.key];
-      if (value) {
-        nextMessages.push({ text: step.prompt, isBot: true });
-        nextMessages.push({ text: value === 'skipped' ? 'Skipped' : value, isBot: false });
-        return;
-      }
-      if (step.key === nextKey) {
-        nextMessages.push({ text: step.prompt, isBot: true });
-      }
-    });
-
-    if (nextKey === 'confirm') {
-      nextMessages.push({ text: steps[steps.length - 1].prompt, isBot: true });
-    }
-
-    setMessages(nextMessages);
-  };
-
-  const refreshState = async () => {
+  const handleReset = async () => {
+    setValues({});
+    setStatus('Fill the form, then submit.');
+    setResultText('');
+    setResultError('');
+    setCurrentKey('type');
     try {
-      const res = await api.get('/state');
-      const collected = res.data?.collected ?? {};
-      const missing: string[] = res.data?.missing ?? [];
-      const nextKey = missing.length ? missing[0] : 'confirm';
-      setAnswers(collected);
-      setCurrentKey(nextKey);
-      rebuildTranscript(collected, nextKey);
+      await api.post('/reset');
     } catch {
       // ignore
     }
   };
 
-  const sendValue = async (value: string) => {
-    if (!value.trim()) return;
-    setIsTyping(true);
+  const refreshState = async () => {
     try {
-      await api.post('/chat', { message: value.trim() });
-      await refreshState();
+      const res = await api.get('/state');
+      const missing: string[] = res.data?.missing ?? [];
+      const nextKey = missing.length ? missing[0] : 'confirm';
+      setCurrentKey(nextKey);
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        { text: 'Connection error. Make sure the service is running at http://localhost:8000', isBot: true },
-      ]);
-    } finally {
-      setIsTyping(false);
-      setInput('');
+      // ignore
     }
   };
 
-  const handleSend = async () => {
-    if (currentStep.kind === 'confirm') {
-      await sendValue('confirm');
+  const submitForm = async () => {
+    if (missingKeys.length) {
+      setStatus('Please fill all required fields before submitting.');
       return;
     }
-    await sendValue(input);
-  };
-
-  const handleOptionClick = async (option: string) => {
-    await sendValue(option);
-  };
-
-  const handleSkip = async () => {
-    await sendValue('skip');
-  };
-
-  const handleReset = async () => {
+    setSubmitting(true);
+    setStatus('Submitting to BizMart...');
+    setResultText('');
+    setResultError('');
     try {
       await api.post('/reset');
+      for (const step of steps) {
+        const value = values[step.key];
+        if (!value && step.optional) {
+          await api.post('/chat', { message: 'skip' });
+        } else {
+          await api.post('/chat', { message: value });
+        }
+      }
+      const confirmRes = await api.post('/chat', { message: 'confirm' });
+      const responseText = confirmRes?.data?.response ?? 'Launch submitted.';
+      setResultText(responseText);
+      setStatus('Submitted. Review the result panel below.');
+      await refreshState();
+    } catch {
+      setStatus('Connection error. Make sure the service is running at http://localhost:8000');
+      setResultError('Unable to reach the backend. Please try again.');
     } finally {
-      setInput('');
-      setAnswers({});
-      setCurrentKey('type');
-      rebuildTranscript({}, 'type');
-      scrollToBottom();
+      setSubmitting(false);
     }
   };
 
@@ -243,196 +186,162 @@ const Terminal: React.FC = () => {
     refreshState();
   }, []);
 
-  const summaryItems = useMemo(() => {
-    const formatValue = (value?: string) => {
-      if (!value) return '—';
-      return value === 'skipped' ? 'Skipped' : value;
+  const resultDetails = useMemo(() => {
+    if (!resultText) {
+      return { token: '', market: '', tx: '' };
+    }
+    const tokenMatch = resultText.match(/token\s+([A-Za-z0-9]+)/i);
+    const marketMatch = resultText.match(/market\s+([A-Za-z0-9]+)/i);
+    const txMatch =
+      resultText.match(/tx(?:hash)?\s*[:#]?\s*([A-Za-z0-9]+)/i) ||
+      resultText.match(/transaction\s*[:#]?\s*([A-Za-z0-9]+)/i);
+    return {
+      token: tokenMatch?.[1] ?? '',
+      market: marketMatch?.[1] ?? '',
+      tx: txMatch?.[1] ?? '',
     };
-
-    return [
-      { label: 'Type', value: formatValue(answers.type) },
-      { label: 'Name', value: formatValue(answers.name) },
-      { label: 'Socials', value: formatValue(answers.socials) },
-      { label: 'Description', value: formatValue(answers.description) },
-      { label: 'Value & Audience', value: formatValue(answers.value_audience) },
-      { label: 'Stage', value: formatValue(answers.stage) },
-      { label: 'Prediction', value: formatValue(answers.prediction_type) },
-      { label: 'Question', value: formatValue(answers.prediction_question) },
-      { label: 'Duration', value: formatValue(answers.duration) },
-      { label: 'Chain', value: formatValue(answers.chain) },
-      { label: 'Vibe', value: formatValue(answers.vibe) },
-      { label: 'Marketing', value: formatValue(answers.marketing) },
-      { label: 'Wallet', value: formatValue(answers.wallet) },
-    ];
-  }, [answers]);
+  }, [resultText]);
 
   return (
     <section className="grid gap-6 lg:grid-cols-12">
-      <div className="lg:col-span-8 rounded-[32px] border border-white/10 bg-white/5 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.9)] overflow-hidden flex flex-col h-[70vh]">
+      <div className="lg:col-span-8 rounded-[32px] border border-white/10 bg-white/5 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.9)] overflow-hidden">
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <div>
-            <div className="text-xs uppercase tracking-[0.35em] text-slate-400">BizMart Terminal</div>
-            <div className="text-[11px] text-slate-500">Guided Session</div>
+            <div className="text-xs uppercase tracking-[0.35em] text-slate-400">BizMart Form</div>
+            <div className="text-[11px] text-slate-500">Quick Launch</div>
           </div>
           <button
             type="button"
             onClick={handleReset}
             className="rounded-full border border-white/10 px-4 py-2 text-[10px] uppercase tracking-[0.3em] text-slate-300 hover:bg-white/10"
           >
-            Start Over
+            Reset
           </button>
         </div>
 
-        <div ref={listRef} className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`flex ${msg.isBot ? 'justify-start' : 'justify-end'} animate-in fade-in slide-in-from-bottom-2 duration-300`}
-            >
-              <div
-                className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                  msg.isBot
-                    ? 'border border-white/10 bg-slate-950/70 text-slate-200'
-                    : 'bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-900 shadow-[0_12px_30px_-18px_rgba(16,185,129,0.9)]'
-                }`}
-              >
-                <p className="whitespace-pre-wrap">{msg.text}</p>
+        <div className="px-6 py-6 space-y-5">
+          {steps.map((step) => (
+            <div key={step.key} className="rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="text-[10px] uppercase tracking-[0.3em] text-slate-500">{step.label}</div>
+                {step.optional && (
+                  <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                    Optional
+                  </span>
+                )}
               </div>
+              <div className="mt-2 text-sm text-slate-300">{step.prompt}</div>
+
+              {step.kind === 'select' && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {step.options?.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => updateValue(step.key, option)}
+                      className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${
+                        values[step.key] === option
+                          ? 'border-emerald-400 bg-emerald-400/20 text-emerald-200'
+                          : 'border-white/10 bg-slate-900/60 text-slate-200 hover:bg-white/10'
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {step.kind === 'text' && (
+                <textarea
+                  value={values[step.key] ?? ''}
+                  onChange={(e) => updateValue(step.key, e.target.value)}
+                  placeholder={step.placeholder ?? 'Type your answer...'}
+                  className="mt-3 w-full bg-slate-950/60 text-sm text-slate-100 placeholder:text-slate-600 outline-none resize-none rounded-xl border border-white/10 px-3 py-2"
+                  rows={2}
+                />
+              )}
             </div>
           ))}
 
-          {isTyping && (
-            <div className="flex justify-start">
-              <div className="rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3">
-                <div className="flex gap-1.5">
-                  <div className="h-2 w-2 rounded-full bg-slate-500 animate-bounce"></div>
-                  <div className="h-2 w-2 rounded-full bg-slate-500 animate-bounce delay-75"></div>
-                  <div className="h-2 w-2 rounded-full bg-slate-500 animate-bounce delay-150"></div>
-                </div>
-              </div>
-            </div>
-          )}
-          <div ref={bottomRef} />
-        </div>
-
-        {showJump && (
-          <div className="px-5 pb-2">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
-              onClick={scrollToBottom}
-              className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-slate-300 hover:bg-white/10"
+              onClick={submitForm}
+              disabled={submitting}
+              className="rounded-full bg-emerald-400 px-6 py-2.5 text-xs font-semibold uppercase tracking-widest text-slate-900 transition hover:bg-emerald-300 disabled:opacity-50"
             >
-              Jump to latest
+              {submitting ? 'Submitting...' : 'Submit & Launch'}
             </button>
-          </div>
-        )}
-
-        <div className="border-t border-white/10 bg-slate-950/60 px-5 py-4">
-          <div className="rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 space-y-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-lg font-semibold text-emerald-300">$</span>
-              <span className="text-[10px] uppercase tracking-[0.3em] text-slate-400">{currentStep.label}</span>
-              <div className="flex-1 min-w-[220px] text-sm text-slate-200">{currentStep.prompt}</div>
-              {currentStep.kind === 'confirm' && (
-                <button
-                  onClick={handleSend}
-                  className="rounded-full bg-emerald-400 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-slate-900 transition hover:bg-emerald-300"
-                >
-                  Confirm
-                </button>
-              )}
-            </div>
-
-            {currentStep.kind === 'select' && (
-              <div className="flex flex-wrap gap-2">
-                {currentStep.options?.map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => handleOptionClick(option)}
-                    className="rounded-full border border-white/10 bg-slate-900/60 px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-white/10"
-                  >
-                    {option}
-                  </button>
-                ))}
-                {currentStep.optional && (
-                  <button
-                    type="button"
-                    onClick={handleSkip}
-                    className="rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.2em] text-slate-300 hover:bg-white/10"
-                  >
-                    Skip
-                  </button>
-                )}
-              </div>
-            )}
-
-            {currentStep.kind === 'text' && (
-              <div className="flex flex-wrap items-start gap-3">
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
-                    }
-                  }}
-                  placeholder={currentStep.placeholder ?? 'Type your answer...'}
-                  className="flex-1 min-w-[240px] bg-transparent text-sm text-slate-100 placeholder:text-slate-600 outline-none resize-none rounded-xl border border-white/10 px-3 py-2"
-                  rows={2}
-                />
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleSend}
-                    disabled={!input.trim()}
-                    className="rounded-full bg-emerald-400 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-slate-900 transition hover:bg-emerald-300 disabled:opacity-40"
-                  >
-                    Send
-                  </button>
-                  {currentStep.optional && (
-                    <button
-                      type="button"
-                      onClick={handleSkip}
-                      className="rounded-full border border-white/10 px-3 py-2 text-[10px] uppercase tracking-[0.3em] text-slate-300 hover:bg-white/10"
-                    >
-                      Skip
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
+            <span className="text-xs text-slate-500">{status}</span>
           </div>
         </div>
       </div>
 
       <aside className="lg:col-span-4 space-y-6">
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+          <div className="text-xs uppercase tracking-[0.35em] text-slate-400">Progress</div>
+          <div className="mt-4 space-y-3 text-xs text-slate-200">
+            {steps.map((step) => {
+              const filled = Boolean(values[step.key]);
+              const isMissing = !filled && !step.optional;
+              return (
+                <div key={step.key} className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3">
+                  <div className="text-[10px] uppercase tracking-[0.3em] text-slate-500">{step.label}</div>
+                  <div className={`mt-1 text-sm ${filled ? 'text-emerald-200' : isMissing ? 'text-rose-200' : 'text-slate-400'}`}>
+                    {filled ? values[step.key] : step.optional ? 'Optional' : 'Required'}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
           <div className="text-xs uppercase tracking-[0.35em] text-slate-400">Terminal Help</div>
           <pre className="mt-4 rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-xs text-slate-200 whitespace-pre-wrap">
 {`bizmart --help
 
 USAGE:
-  Answer one question at a time.
-  Use the buttons for choices.
-  Press Enter to send.
-  Shift+Enter adds a new line.
+  Fill the form and submit once.
+  Optional fields can be left empty.
 
-NOTES:
-  Socials and Marketing are optional.
-  You can skip them anytime.`}
+NOTE:
+  The backend will run the launch flow in order.`}
           </pre>
+          <div className="mt-4 text-xs text-slate-500">
+            Current backend step: <span className="text-slate-300">{currentKey}</span>
+          </div>
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-          <div className="text-xs uppercase tracking-[0.35em] text-slate-400">Form View</div>
-          <div className="mt-4 space-y-3 text-xs text-slate-200">
-            {summaryItems.map((item) => (
-              <div key={item.label} className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3">
-                <div className="text-[10px] uppercase tracking-[0.3em] text-slate-500">{item.label}</div>
-                <div className="mt-1 text-sm text-slate-100 break-words">{item.value}</div>
+          <div className="text-xs uppercase tracking-[0.35em] text-slate-400">Result</div>
+          <div className="mt-4 space-y-3 text-sm text-slate-200">
+            {resultError && (
+              <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-rose-100">
+                {resultError}
               </div>
-            ))}
+            )}
+            {!resultError && resultText && (
+              <div className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 whitespace-pre-wrap">
+                {resultText}
+              </div>
+            )}
+            {!resultError && !resultText && (
+              <div className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-400">
+                Submit the form to see the launch response.
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-xs text-slate-300 space-y-2">
+            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Transaction Details</div>
+            <div>Chain: <span className="text-slate-100">{values.chain ?? '—'}</span></div>
+            <div>Duration: <span className="text-slate-100">{values.duration ?? '—'}</span></div>
+            <div>Wallet: <span className="text-slate-100">{values.wallet ?? '—'}</span></div>
+            <div>Vibe: <span className="text-slate-100">{values.vibe ?? '—'}</span></div>
+            <div>Token: <span className="text-slate-100">{resultDetails.token || '—'}</span></div>
+            <div>Market: <span className="text-slate-100">{resultDetails.market || '—'}</span></div>
+            <div>Tx Hash: <span className="text-slate-100">{resultDetails.tx || '—'}</span></div>
           </div>
         </div>
       </aside>
