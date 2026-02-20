@@ -6,13 +6,13 @@ type AppShellProps = {
 
 const AppShell: React.FC<AppShellProps> = ({ children }) => {
   return (
-    <div className="min-h-screen bg-[#0b0d12] text-slate-100 font-['Plus_Jakarta_Sans']">
+    <div className="min-h-screen bg-[#0B0F14] text-slate-100 font-['IBM_Plex_Sans']">
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute -top-32 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(16,185,129,0.18),rgba(14,116,144,0))] blur-2xl"></div>
-        <div className="absolute bottom-0 right-0 h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.18),rgba(11,13,18,0))] blur-3xl"></div>
-        <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.04),transparent_35%,rgba(255,255,255,0.02))]"></div>
+        <div className="absolute -top-48 left-[20%] h-[560px] w-[560px] rounded-full bg-[radial-gradient(circle,rgba(34,197,94,0.12),rgba(11,15,20,0))] blur-3xl" />
+        <div className="absolute -bottom-32 right-[8%] h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle,rgba(20,184,166,0.10),rgba(11,15,20,0))] blur-3xl" />
+        <div className="absolute inset-0 bg-[linear-gradient(160deg,rgba(255,255,255,0.03),transparent_35%,rgba(255,255,255,0.015))]" />
       </div>
-      <div className="relative z-10 px-4 py-6 md:px-10 md:py-10">{children}</div>
+      <div className="relative z-10 mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-10">{children}</div>
     </div>
   );
 };

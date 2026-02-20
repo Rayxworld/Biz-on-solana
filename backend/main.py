@@ -6,7 +6,7 @@ from agent import BizMartAgent
 import time
 from collections import defaultdict, deque
 
-app = FastAPI(title="BizFun API", version="1.0.0")
+app = FastAPI(title="BizFi API", version="1.0.0")
 
 # Enable CORS for frontend
 app.add_middleware(
@@ -94,7 +94,7 @@ def _get_agent(session_id: str) -> BizMartAgent:
 @app.get("/")
 async def root():
     return {
-        "message": "BizFun API",
+        "message": "BizFi API",
         "version": "1.0.0",
         "status": "online"
     }
@@ -263,7 +263,8 @@ async def get_state(http_request: Request):
 
 if __name__ == "__main__":
     import uvicorn
-    print("🚀 Starting BizFun API server...")
+    print("🚀 Starting BizFi API server...")
     print("📍 API will be available at: http://localhost:8000")
     print("📖 API docs at: http://localhost:8000/docs")
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+

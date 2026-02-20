@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/ai/**/*.ts",
+    "src/services/**/*.ts",
+    "src/solana/**/*.ts",
+    "src/config/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

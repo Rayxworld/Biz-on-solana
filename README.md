@@ -1,9 +1,9 @@
 # Bizmarket-on-solana
 
 ## Project Overview
-- **Frontend**: Vite + React + Tailwind UI for BizFun/BizMart chat, markets, and launch flows.
+- **Frontend**: Vite + React + Tailwind UI for BizFi/BizMart chat, markets, and launch flows.
 - **Backend**: FastAPI server that powers chat (`/chat`), markets (`/markets`), stats (`/stats`), and Solana program checks (`/program/*`).
-- **Solana**: Program ID configured in `.env`, IDL available at `backend/idl/bizfun_market.json`.
+- **Solana**: Program ID configured in `.env`, IDL available at `backend/idl/bizfi_market.json`.
 
 ## Repository Structure
 - `frontend/` — React UI (Vite, Tailwind)
@@ -13,7 +13,7 @@
   - `main.py` — API routes
   - `agent.py` — OpenRouter chat agent
   - `solana_client.py` — Solana RPC + program status helpers
-- `idl/bizfun_market.json` — Anchor IDL for on-chain program
+- `idl/bizfi_market.json` — Anchor IDL for on-chain program
 - `contracts/` — on-chain/contract artifacts (if any)
 - `README.md` — project info and run steps
 
@@ -26,7 +26,7 @@
   - `GET /program/accounts`
 - Added `SOLANA_PROGRAM_ID` support in `backend/solana_client.py`.
 - Updated `backend/.env.example` to include OpenRouter + program ID settings.
-- IDL found at `backend/idl/idl.json` with program name `bizfun_market`.
+- IDL found at `backend/idl/idl.json` with program name `bizfi_market`.
 
 ### Frontend
 - Premium UI redesign implemented in `frontend/src/App.tsx`.
@@ -44,8 +44,8 @@
 
 ### Backend (Conda)
 ```
-conda create -n bizfun python=3.12
-conda activate bizfun
+conda create -n bizfi python=3.12
+conda activate bizfi
 cd backend
 pip install -r requirements.txt
 python main.py
@@ -74,7 +74,7 @@ SOLANA_PRIVATE_KEY=[1,2,3,...]
 ---
 
 ## Decisions Locked
-- **IDL file**: `backend/idl/bizfun_market.json`
+- **IDL file**: `backend/idl/bizfi_market.json`
 - **Wallet integration**: Phantom-only
 - **PDA seeds**:
   - Market PDA: `["market", market_id]`
@@ -91,3 +91,4 @@ SOLANA_PRIVATE_KEY=[1,2,3,...]
 
 ## Next Proposed Work
 - Use IDL to call on-chain instructions (write flows) now that PDA seeds are locked.
+

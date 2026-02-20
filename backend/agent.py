@@ -20,7 +20,7 @@ class BizMartAgent:
             base_url=openrouter_base,
             default_headers={
                 "HTTP-Referer": os.getenv("OPENROUTER_SITE_URL", "http://localhost:8000"),
-                "X-Title": os.getenv("OPENROUTER_APP_NAME", "BizFun"),
+                "X-Title": os.getenv("OPENROUTER_APP_NAME", "BizFi"),
             },
         )
         self.orchestrator = BizMartOrchestrator()
@@ -41,7 +41,7 @@ class BizMartAgent:
             "11. Vibe: Meme, Serious, or Experimental?\n"
             "12. Marketing: Can I market this publicly? (MoltBook, AI debates, Reply chaos, Chaos mode)\n"
             "13. Settlement: Drop a USDC address for settlement.\n"
-            "14. Final confirm: Summarize and ask to fund the BizFun wallet with 10 USDC fee.\n\n"
+            "14. Final confirm: Summarize and ask to fund the BizFi wallet with 10 USDC fee.\n\n"
             "Do not ask multiple questions at once. Keep it conversational. "
             "When the user mentions they have paid or asks to launch, if you have all data, type 'TRIGGER_LAUNCH'."
         )
@@ -171,7 +171,7 @@ class BizMartAgent:
             self.collected_data[key] = user_input.strip()
         # Parse labeled input to reduce strictness
         lowered = user_input.lower()
-        # Parse labeled lines like "Name: BizFun AI"
+        # Parse labeled lines like "Name: BizFi AI"
         # Non-strict parsing removed in strict mode
 
     def _fast_forward_step(self):
@@ -216,7 +216,7 @@ class BizMartAgent:
             f"- Vibe: {self.collected_data.get('vibe')}\n"
             f"- Marketing: {self.collected_data.get('marketing')}\n"
             f"- Settlement Wallet: {self.collected_data.get('wallet')}\n\n"
-            "Type confirm to launch and fund the BizFun wallet with 10 USDC fee."
+            "Type confirm to launch and fund the BizFi wallet with 10 USDC fee."
         )
         return summary
 
@@ -348,3 +348,4 @@ if __name__ == "__main__":
             print(f"BizMart: {response}")
     
     asyncio.run(main())
+

@@ -14,7 +14,7 @@ load_dotenv()
 
 class BizMartOrchestrator:
     """
-    Handles Solana blockchain interactions for BizFun markets
+    Handles Solana blockchain interactions for BizFi markets
     """
     
     def __init__(self):
@@ -24,7 +24,7 @@ class BizMartOrchestrator:
         self.program_id = None
         self.idl_path = os.getenv(
             "IDL_PATH",
-            os.path.join(os.path.dirname(__file__), "idl", "bizfun_market.json")
+            os.path.join(os.path.dirname(__file__), "idl", "bizfi_market.json")
         )
         self._program = None
         if self.program_id_str:
@@ -69,7 +69,7 @@ class BizMartOrchestrator:
 
     async def check_fee_payment(self, user_wallet: str) -> bool:
         """
-        Check if the user has sent 10 USDC to the BizFun treasury.
+        Check if the user has sent 10 USDC to the BizFi treasury.
         
         Args:
             user_wallet: The user's wallet address
@@ -426,3 +426,4 @@ if __name__ == "__main__":
         await orchestrator.close()
     
     asyncio.run(test())
+
