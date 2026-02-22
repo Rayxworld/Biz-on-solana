@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Routes, Route, NavLink, Navigate, useNavigate } from "react-router-dom";
 import { Wallet, CandlestickChart } from "lucide-react";
 import AppShell from './components/AppShell';
+import Home from './pages/Home';
 import Markets from './pages/Markets';
 import MarketDetail from './pages/MarketDetail';
 
@@ -51,6 +52,17 @@ const App: React.FC = () => {
         </div>
 
         <nav className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.2em] text-slate-400">
+          <span className="rounded-md border border-sky-400/40 bg-sky-400/10 px-3 py-2 text-[10px] text-sky-200">
+            Devnet
+          </span>
+          <NavLink
+            to="/"
+            className={({ isActive }) =>
+              `rounded-md border px-4 py-2 ${isActive ? 'border-emerald-400/60 bg-emerald-400/10 text-emerald-200' : 'border-white/10 text-slate-400 hover:text-white'}`
+            }
+          >
+            Home
+          </NavLink>
           <NavLink
             to="/markets"
             className={({ isActive }) =>
@@ -72,7 +84,7 @@ const App: React.FC = () => {
       </header>
 
       <Routes>
-        <Route path="/" element={<Markets />} />
+        <Route path="/" element={<Home />} />
         <Route path="/markets" element={<Markets />} />
         <Route path="/markets/:id" element={<MarketDetail walletAddress={walletAddress} />} />
         <Route path="*" element={<Navigate to="/markets" replace />} />

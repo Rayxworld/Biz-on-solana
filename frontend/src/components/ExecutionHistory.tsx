@@ -4,6 +4,7 @@ import { Clock, TrendingUp, TrendingDown, Minus, ExternalLink } from 'lucide-rea
 
 interface ExecutionHistoryProps {
   walletAddress: string | null;
+  refreshTrigger?: number;
 }
 
 interface LogEntry {
@@ -20,7 +21,7 @@ interface LogEntry {
   created_at: string;
 }
 
-const ExecutionHistory: React.FC<ExecutionHistoryProps> = ({ walletAddress }) => {
+const ExecutionHistory: React.FC<ExecutionHistoryProps> = ({ walletAddress, refreshTrigger }) => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [trades, setTrades] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'analyses' | 'trades'>('analyses');
@@ -46,7 +47,7 @@ const ExecutionHistory: React.FC<ExecutionHistoryProps> = ({ walletAddress }) =>
     };
 
     load();
-  }, [walletAddress]);
+  }, [walletAddress, refreshTrigger]);
 
   if (!walletAddress) {
     return (
@@ -131,7 +132,7 @@ const ExecutionHistory: React.FC<ExecutionHistoryProps> = ({ walletAddress }) =>
                   <span className="text-[10px] text-slate-500">
                     {log.analysis_json?.confidence
                       ? `${(log.analysis_json.confidence * 100).toFixed(0)}%`
-                      : '—'}
+                      : '--'}
                   </span>
                   <span className="flex items-center gap-1 text-[10px] text-slate-600">
                     <Clock className="h-2.5 w-2.5" />

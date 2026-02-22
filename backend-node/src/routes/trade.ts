@@ -5,11 +5,14 @@ import { recordTradeExecution } from "../ai/guardrails.js";
 import { tradeSubmitRateLimiter } from "../middleware/rateLimit.js";
 import { validateBody } from "../middleware/validate.js";
 import type {
+  AtaPrecheckRequest,
+  AtaPrecheckResponse,
   PrepareTradeRequest,
   PrepareTradeResponse,
   SubmitTradeRequest,
   SubmitTradeResponse,
 } from "../types/trade.js";
+import { recordTradeMetric } from "../services/metrics.js";
 
 const router = Router();
 
@@ -27,6 +30,28 @@ const SubmitTradeSchema = z.object({
   amount: z.number().int().positive().optional(),
 });
 
+const AtaPrecheckSchema = z.object({
+  marketId: z.number().int().positive(),
+  userPubkey: z.string().min(32).max(44),
+  userUsdcAta: z.string().min(32).max(44),
+});
+
+router.post(
+  "/precheck-ata",
+  validateBody(AtaPrecheckSchema),
+  async (req: Request, res: Response) => {
+    try {
+      const { marketId, userPubkey, userUsdcAta } = req.body as AtaPrecheckRequest;
+      const check = await solanaClient.precheckUserUsdcAta(marketId, userPubkey, userUsdcAta);
+      const payload: AtaPrecheckResponse = check;
+      return res.status(check.ok ? 200 : 400).json(payload);
+    } catch (err: any) {
+      console.error("POST /api/trade/precheck-ata error:", err.message);
+      return res.status(500).json({ ok: false, reason: "ATA precheck failed" });
+    }
+  }
+);
+
 router.post(
   "/prepare",
   validateBody(PrepareTradeSchema),
@@ -34,6 +59,18 @@ router.post(
     try {
       const { marketId, userPubkey, userUsdcAta, amount, betOnYes } =
         req.body as PrepareTradeRequest;
+      const ataCheck = await solanaClient.precheckUserUsdcAta(
+        marketId,
+        userPubkey,
+        userUsdcAta
+      );
+      if (!ataCheck.ok) {
+        return res.status(400).json({
+          error: "ATA precheck failed",
+          reason: ataCheck.reason,
+          details: ataCheck.details,
+        });
+      }
 
       const result = await solanaClient.buildPlaceBetTransaction(
         marketId,
@@ -75,9 +112,22 @@ router.post(
           reason: verification.reason,
         });
       }
+      const ataCheck = await solanaClient.precheckUserUsdcAtaForMarketAddress(
+        verification.marketAddress,
+        userPubkey,
+        verification.userUsdcAta
+      );
+      if (!ataCheck.ok) {
+        return res.status(400).json({
+          error: "ATA precheck failed",
+          reason: ataCheck.reason,
+          details: ataCheck.details,
+        });
+      }
 
       const signature = await solanaClient.submitSignedTransaction(signedTransaction);
       recordTradeExecution(userPubkey, verification.amount);
+      recordTradeMetric(userPubkey, verification.amount);
 
       const response: SubmitTradeResponse = {
         success: true,

@@ -4,6 +4,7 @@ import { analyzeMarket } from "../ai/agent.js";
 import { fetchUserLogs } from "../services/logger.js";
 import { aiAnalyzeRateLimiter } from "../middleware/rateLimit.js";
 import { validateBody } from "../middleware/validate.js";
+import { recordAnalysisMetric } from "../services/metrics.js";
 
 const router = Router();
 
@@ -20,10 +21,13 @@ router.post(
     try {
       const { marketId, userPubkey } = req.body as z.infer<typeof AnalyzeRequestSchema>;
       const result = await analyzeMarket(marketId, userPubkey);
+      recordAnalysisMetric(userPubkey, marketId);
 
       return res.json({
         success: true,
         analysis: result.analysis,
+        telemetry: result.telemetry,
+        observability: result.observability,
         guardrails: {
           allowed: result.guardrails.allowed,
           reasons: result.guardrails.reasons,

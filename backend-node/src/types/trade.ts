@@ -25,3 +25,21 @@ export interface SubmitTradeResponse {
   explorer: string;
   verifiedAmount: number;
 }
+
+export interface AtaPrecheckRequest {
+  marketId: number;
+  userPubkey: string;
+  userUsdcAta: string;
+}
+
+export interface AtaPrecheckResponse {
+  ok: boolean;
+  reason?: string;
+  details?: {
+    owner: string;
+    mint: string;
+    expectedOwner: string;
+    expectedMint: string;
+    amountUi: number;
+  };
+}

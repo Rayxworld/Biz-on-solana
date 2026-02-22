@@ -6,6 +6,20 @@ export interface TradeAnalysis {
   risk_score: number;
 }
 
+export interface AnalysisTelemetry {
+  source: "llm" | "fallback_microstructure" | "fallback_no_liquidity" | "fallback_inactive";
+  fallbackTriggered: boolean;
+  notes: string[];
+}
+
+export interface AnalysisObservability {
+  provider: "groq";
+  model: string;
+  latencyMs: number;
+  usedFallback: boolean;
+  guardrailBlocked: boolean;
+}
+
 export interface GuardrailResult {
   allowed: boolean;
   reasons: string[];

@@ -2,30 +2,33 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { config } from "../config/index.js";
 import type { AnalysisResult } from "../ai/agent.js";
 
-// ── Supabase client (lazy init — null if not configured) ──
 let supabase: SupabaseClient | null = null;
+let logsTableAvailable = true;
+const inMemoryLogs: any[] = [];
 
 function getSupabase(): SupabaseClient | null {
   if (supabase) return supabase;
+
   if (!config.supabaseUrl || !config.supabaseServiceKey) {
     console.warn(
-      "⚠ Supabase not configured — AI logs will only go to console (demo mode)"
+      "Supabase not configured. AI logs will only be written to console (demo mode)."
     );
     return null;
   }
+
   supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
   return supabase;
 }
 
-/**
- * Log an AI analysis result to Supabase.
- *
- * Table: ai_reasoning_logs
- * Columns: market_id, user_pubkey, analysis_json, guardrail_result,
- *          action_taken, created_at
- *
- * Falls back to console.log if Supabase is not configured (demo mode).
- */
+function isMissingLogsTableError(message: string): boolean {
+  const msg = (message || "").toLowerCase();
+  return (
+    msg.includes("could not find the table") ||
+    msg.includes("schema cache") ||
+    (msg.includes("relation") && msg.includes("does not exist"))
+  );
+}
+
 export async function logAnalysis(
   marketId: number,
   userPubkey: string,
@@ -35,6 +38,7 @@ export async function logAnalysis(
     market_id: marketId,
     user_pubkey: userPubkey,
     analysis_json: result.analysis,
+    observability: result.observability,
     guardrail_result: {
       allowed: result.guardrails.allowed,
       reasons: result.guardrails.reasons,
@@ -45,38 +49,45 @@ export async function logAnalysis(
     market_data_snapshot: result.marketData,
     created_at: result.timestamp,
   };
+  inMemoryLogs.unshift(logEntry);
+  if (inMemoryLogs.length > 200) inMemoryLogs.length = 200;
 
   const sb = getSupabase();
-  if (sb) {
-    try {
-      const { error } = await sb
-        .from("ai_reasoning_logs")
-        .insert(logEntry);
-      if (error) {
-        console.error("Supabase log error:", error.message);
-        // Fallback to console
-        console.log("📝 AI Log (Supabase fallback):", JSON.stringify(logEntry, null, 2));
-      }
-    } catch (err: any) {
-      console.error("Supabase insert failed:", err.message);
-      console.log("📝 AI Log (Supabase fallback):", JSON.stringify(logEntry, null, 2));
+  if (!sb || !logsTableAvailable) {
+    console.log("AI Reasoning Log:", JSON.stringify(logEntry, null, 2));
+    return;
+  }
+
+  try {
+    const { error } = await sb.from("ai_reasoning_logs").insert(logEntry);
+    if (!error) return;
+
+    if (isMissingLogsTableError(error.message)) {
+      logsTableAvailable = false;
+      console.warn(
+        "Supabase table 'ai_reasoning_logs' not found. Falling back to console logs."
+      );
+    } else {
+      console.error("Supabase log error:", error.message);
     }
-  } else {
-    // Demo mode: console logging
-    console.log("📝 AI Reasoning Log:", JSON.stringify(logEntry, null, 2));
+
+    console.log("AI Log (Supabase fallback):", JSON.stringify(logEntry, null, 2));
+  } catch (err: any) {
+    console.error("Supabase insert failed:", err.message);
+    console.log("AI Log (Supabase fallback):", JSON.stringify(logEntry, null, 2));
   }
 }
 
-/**
- * Fetch AI reasoning logs for a user from Supabase.
- * Returns empty array if Supabase is not configured.
- */
 export async function fetchUserLogs(
   userPubkey: string,
   limit = 20
 ): Promise<any[]> {
   const sb = getSupabase();
-  if (!sb) return [];
+  if (!sb || !logsTableAvailable) {
+    return inMemoryLogs
+      .filter((log) => log.user_pubkey === userPubkey)
+      .slice(0, limit);
+  }
 
   try {
     const { data, error } = await sb
@@ -87,9 +98,17 @@ export async function fetchUserLogs(
       .limit(limit);
 
     if (error) {
-      console.error("Failed to fetch logs:", error.message);
+      if (isMissingLogsTableError(error.message)) {
+        logsTableAvailable = false;
+        console.warn(
+          "Supabase table 'ai_reasoning_logs' not found. Returning empty logs."
+        );
+      } else {
+        console.error("Failed to fetch logs:", error.message);
+      }
       return [];
     }
+
     return data || [];
   } catch {
     return [];

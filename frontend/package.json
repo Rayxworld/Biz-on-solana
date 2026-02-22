@@ -10,12 +10,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@solana/web3.js": "^1.98.0",
     "axios": "^1.13.5",
+    "buffer": "^6.0.3",
     "clsx": "^2.1.1",
+    "framer-motion": "^12.34.3",
     "lucide-react": "^0.563.0",
-    "react-router-dom": "^6.28.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-router-dom": "^6.28.0",
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
@@ -36,4 +39,3 @@
     "vite": "^7.3.1"
   }
 }
-

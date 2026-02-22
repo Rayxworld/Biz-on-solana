@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import ConfidenceMeter from './ConfidenceMeter';
-import type { TradeAnalysis, GuardrailResult } from '../lib/api';
+import type { AnalysisResponse, TradeAnalysis, GuardrailResult } from '../lib/api';
 import { requestAIAnalysis } from '../lib/api';
 import { Brain, Shield, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
 
@@ -8,16 +8,24 @@ interface AISuggestionPanelProps {
   marketId: number;
   walletAddress: string | null;
   onExecute?: (analysis: TradeAnalysis) => void;
+  onAnalysis?: (result: AnalysisResponse) => void;
 }
 
 const AISuggestionPanel: React.FC<AISuggestionPanelProps> = ({
   marketId,
   walletAddress,
   onExecute,
+  onAnalysis,
 }) => {
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState<TradeAnalysis | null>(null);
   const [guardrails, setGuardrails] = useState<GuardrailResult | null>(null);
+  const [telemetry, setTelemetry] = useState<{
+    source: "llm" | "fallback_microstructure" | "fallback_no_liquidity" | "fallback_inactive";
+    fallbackTriggered: boolean;
+    notes: string[];
+  } | null>(null);
+  const [observability, setObservability] = useState<AnalysisResponse["observability"]>();
   const [error, setError] = useState<string | null>(null);
 
   const handleAnalyze = async () => {
@@ -33,6 +41,9 @@ const AISuggestionPanel: React.FC<AISuggestionPanelProps> = ({
       const result = await requestAIAnalysis(marketId, walletAddress);
       setAnalysis(result.analysis);
       setGuardrails(result.guardrails);
+      setTelemetry(result.telemetry || null);
+      setObservability(result.observability);
+      onAnalysis?.(result);
     } catch (err: any) {
       setError(err.response?.data?.error || err.message || 'Analysis failed');
     } finally {
@@ -178,6 +189,38 @@ const AISuggestionPanel: React.FC<AISuggestionPanelProps> = ({
             </div>
           )}
 
+          {telemetry && (
+            <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-3">
+              <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-300">
+                Decision Telemetry
+              </div>
+              <div className="text-[11px] text-slate-300">
+                Source: <span className="font-semibold">{telemetry.source}</span>
+                {telemetry.fallbackTriggered ? " (fallback applied)" : " (model direct)"}
+              </div>
+              {telemetry.notes.length > 0 && (
+                <ul className="mt-1 space-y-1 text-[11px] text-slate-400">
+                  {telemetry.notes.map((note, idx) => (
+                    <li key={idx}>- {note}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          {observability && (
+            <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-3">
+              <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-indigo-300">
+                Model Observability
+              </div>
+              <div className="text-[11px] text-slate-300">
+                Provider: {observability.provider} | Model: {observability.model}
+              </div>
+              <div className="mt-1 text-[11px] text-slate-400">
+                Latency: {observability.latencyMs}ms | Fallback: {observability.usedFallback ? "yes" : "no"} | Guardrail blocked: {observability.guardrailBlocked ? "yes" : "no"}
+              </div>
+            </div>
+          )}
+
           {/* Execute Button */}
           <div className="flex gap-2">
             <button
@@ -186,15 +229,22 @@ const AISuggestionPanel: React.FC<AISuggestionPanelProps> = ({
             >
               Re-analyze
             </button>
-            {guardrails?.allowed && analysis.suggested_side !== 'abstain' && (
-              <button
-                onClick={() => onExecute?.(analysis)}
-                className="flex-1 rounded-xl bg-emerald-500/80 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-emerald-400/80"
-              >
-                Execute Trade
-              </button>
-            )}
+            <button
+              onClick={() => onExecute?.(analysis)}
+              className={`flex-1 rounded-xl px-4 py-2.5 text-xs font-bold text-white transition ${
+                guardrails?.allowed && analysis.suggested_side !== "abstain"
+                  ? "bg-emerald-500/80 hover:bg-emerald-400/80"
+                  : "bg-amber-500/70 hover:bg-amber-400/70"
+              }`}
+            >
+              Open Trade Ticket
+            </button>
           </div>
+          {(!guardrails?.allowed || analysis.suggested_side === "abstain") && (
+            <p className="text-[11px] text-amber-300/90">
+              AI execution is blocked by guardrails, but you can still open the trade ticket and place a manual side/amount.
+            </p>
+          )}
         </div>
       )}
     </div>

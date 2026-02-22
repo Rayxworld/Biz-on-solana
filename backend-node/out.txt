@@ -1,0 +1,112 @@
+
+> bizfi-ai-backend@1.0.0 dev
+> tsx watch src/server.ts *
+
+BizFi AI backend started
+Port: 3001
+RPC: Helius Devnet
+IDL path: C:\Users\PC\Bizmarket-on-solana\contracts\target\idl\bizfi_market.json
+Health: http://localhost:3001/api/health
+12:00:35 PM [tsx] Return key Restarting...
+cBizFi AI backend started
+Port: 3001
+RPC: Helius Devnet
+IDL path: C:\Users\PC\Bizmarket-on-solana\contracts\target\idl\bizfi_market.json
+Health: http://localhost:3001/api/health
+12:14:24 PM [tsx] change in ./src\solana\client.ts Restarting...
+cBizFi AI backend started
+Port: 3001
+RPC: Helius Devnet
+IDL path: C:\Users\PC\Bizmarket-on-solana\contracts\target\idl\bizfi_market.json
+Health: http://localhost:3001/api/health
+1:24:52 PM [tsx] change in ./src\server.ts Restarting...
+cBizFi AI backend started
+Port: 3001
+RPC: Helius Devnet
+IDL path: C:\Users\PC\Bizmarket-on-solana\contracts\target\idl\bizfi_market.json
+Health: http://localhost:3001/api/health
+1:25:05 PM [tsx] change in ./src\routes\ai.ts Restarting...
+cBizFi AI backend started
+Port: 3001
+RPC: Helius Devnet
+IDL path: C:\Users\PC\Bizmarket-on-solana\contracts\target\idl\bizfi_market.json
+Health: http://localhost:3001/api/health
+1:25:19 PM [tsx] change in ./src\routes\trade.ts Restarting...
+cBizFi AI backend started
+Port: 3001
+RPC: Helius Devnet
+IDL path: C:\Users\PC\Bizmarket-on-solana\contracts\target\idl\bizfi_market.json
+Health: http://localhost:3001/api/health
+1:25:33 PM [tsx] change in ./src\routes\markets.ts Restarting...
+cBizFi AI backend started
+Port: 3001
+RPC: Helius Devnet
+IDL path: C:\Users\PC\Bizmarket-on-solana\contracts\target\idl\bizfi_market.json
+Health: http://localhost:3001/api/health
+1:28:06 PM [tsx] change in ./src\ai\agent.ts Restarting...
+cBizFi AI backend started
+Port: 3001
+RPC: Helius Devnet
+IDL path: C:\Users\PC\Bizmarket-on-solana\contracts\target\idl\bizfi_market.json
+Health: http://localhost:3001/api/health
+1:29:02 PM [tsx] change in ./src\routes\ai.ts Restarting...
+cBizFi AI backend started
+Port: 3001
+RPC: Helius Devnet
+IDL path: C:\Users\PC\Bizmarket-on-solana\contracts\target\idl\bizfi_market.json
+Health: http://localhost:3001/api/health
+1:29:16 PM [tsx] change in ./src\services\logger.ts Restarting...
+cBizFi AI backend started
+Port: 3001
+RPC: Helius Devnet
+IDL path: C:\Users\PC\Bizmarket-on-solana\contracts\target\idl\bizfi_market.json
+Health: http://localhost:3001/api/health
+AI Log (Supabase fallback): {
+  "market_id": 1771764554,
+  "user_pubkey": "HpA4pDxvaHnZu541CK67qdaqCn66GzurjTwz4Wne3Rez",
+  "analysis_json": {
+    "suggested_side": "abstain",
+    "suggested_amount": 0,
+    "confidence": 0.2,
+    "reasoning": "No liquidity is present yet, so price signals are not informative. Wait for more volume before trading.",
+    "risk_score": 1
+  },
+  "observability": {
+    "provider": "groq",
+    "model": "llama-3.3-70b-versatile",
+    "latencyMs": 2237,
+    "usedFallback": true,
+    "guardrailBlocked": true
+  },
+  "guardrail_result": {
+    "allowed": false,
+    "reasons": [
+      "Confidence 20.0% is below threshold 65.0%",
+      "AI recommends abstaining from this market",
+      "WARNING High risk score: 100.0% - proceed with caution"
+    ]
+  },
+  "action_taken": "blocked",
+  "market_data_snapshot": {
+    "address": "6mawaGfze5c1Jnf14x6drbfEohqx7yTET6awnWqU2dFH",
+    "marketId": 1771764554,
+    "creator": "HpA4pDxvaHnZu541CK67qdaqCn66GzurjTwz4Wne3Rez",
+    "question": "Will bizfi reach 20,00 USDC in revenue before the end of 2026?",
+    "endTime": 1772369431,
+    "isActive": true,
+    "totalPool": 0,
+    "yesPool": 0,
+    "noPool": 0,
+    "yesOdds": 0.5,
+    "noOdds": 0.5,
+    "outcome": false,
+    "timeRemaining": 604803
+  },
+  "created_at": "2026-02-22T12:50:30.295Z"
+}
+2:01:00 PM [tsx] change in ./src\routes\markets.ts Restarting...
+cBizFi AI backend started
+Port: 3001
+RPC: Helius Devnet
+IDL path: C:\Users\PC\Bizmarket-on-solana\contracts\target\idl\bizfi_market.json
+Health: http://localhost:3001/api/health

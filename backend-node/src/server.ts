@@ -5,6 +5,7 @@ import { globalRateLimiter } from "./middleware/rateLimit.js";
 import marketsRouter from "./routes/markets.js";
 import aiRouter from "./routes/ai.js";
 import tradeRouter from "./routes/trade.js";
+import statsRouter from "./routes/stats.js";
 
 const app = express();
 
@@ -20,8 +21,9 @@ app.get("/api/health", (_req, res) => {
     timestamp: new Date().toISOString(),
     config: {
       rpc: config.solanaRpcUrl.includes("helius") ? "helius" : "devnet",
-      hasOpenAI: Boolean(config.openaiApiKey),
+      hasGroq: Boolean(config.groqApiKey),
       hasSupabase: Boolean(config.supabaseUrl && config.supabaseServiceKey),
+      hasMarketFeeConfig: Boolean(config.marketFeeCollectorAta),
       idlPath: config.solanaIdlPath,
     },
   });
@@ -30,6 +32,7 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/markets", marketsRouter);
 app.use("/api/ai", aiRouter);
 app.use("/api/trade", tradeRouter);
+app.use("/api/stats", statsRouter);
 
 app.get("/api/program/status", async (_req, res) => {
   try {

@@ -1,6 +1,8 @@
 import axios from "axios";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001";
+export const DEFAULT_MARKET_MINT = import.meta.env.VITE_MARKET_MINT || "";
+export const DEFAULT_USER_USDC_ATA = import.meta.env.VITE_USER_USDC_ATA || "";
 
 export const api = axios.create({
   baseURL: `${API_BASE}/api`,
@@ -24,11 +26,39 @@ export interface GuardrailResult {
 export interface AnalysisResponse {
   success: boolean;
   analysis: TradeAnalysis;
+  telemetry?: {
+    source: "llm" | "fallback_microstructure" | "fallback_no_liquidity" | "fallback_inactive";
+    fallbackTriggered: boolean;
+    notes: string[];
+  };
+  observability?: {
+    provider: "groq";
+    model: string;
+    latencyMs: number;
+    usedFallback: boolean;
+    guardrailBlocked: boolean;
+  };
   guardrails: GuardrailResult;
   marketData: unknown;
-  userPosition: unknown;
+  userPosition: {
+    user: string;
+    market: string;
+    yesAmount: number;
+    noAmount: number;
+    claimed: boolean;
+    bump: number;
+  } | null;
   riskMetrics: unknown;
   timestamp: string;
+}
+
+export interface UserPositionData {
+  user: string;
+  market: string;
+  yesAmount: number;
+  noAmount: number;
+  claimed: boolean;
+  bump: number;
 }
 
 export interface MarketData {
@@ -47,6 +77,34 @@ export interface MarketData {
   outcome: boolean;
 }
 
+export interface OverviewStats {
+  totalMarkets: number;
+  activeMarkets: number;
+  totalPoolMicroUsdc: number;
+  totalPoolUsdc: number;
+  totalTrades: number;
+  totalTradeVolumeMicroUsdc: number;
+  totalCreationFeesMicroUsdc: number;
+  totalAnalyses: number;
+}
+
+export interface MarketLeaderboardEntry {
+  marketId: number;
+  question: string;
+  totalPool: number;
+  yesOdds: number;
+  noOdds: number;
+  creator: string;
+}
+
+export interface CreatorLeaderboardEntry {
+  creator: string;
+  marketsCreated: number;
+  totalPool: number;
+  createTxCount: number;
+  feesPaidMicroUsdc: number;
+}
+
 export interface PlatformStats {
   active_markets: number;
   total_volume: string;
@@ -61,11 +119,50 @@ export interface PrepareTradeResponse {
   marketAddress: string;
 }
 
+export interface PrepareCreateMarketResponse {
+  success: boolean;
+  message: string;
+  transaction: string;
+  marketAddress: string;
+  fee?: {
+    amountMicroUsdc: number;
+    collectorAta: string;
+  };
+}
+
+export interface SubmitCreateMarketResponse {
+  success: boolean;
+  signature: string;
+  explorer: string;
+  marketAddress: string;
+  creationFeePaid: number;
+}
+
+export interface CreatorMetadata {
+  user_pubkey: string;
+  creator_type: "human" | "agent";
+  creator_label?: string | null;
+  agent_id?: string | null;
+  updated_at: string;
+}
+
 export interface SubmitTradeResponse {
   success: boolean;
   signature: string;
   explorer: string;
   verifiedAmount: number;
+}
+
+export interface AtaPrecheckResponse {
+  ok: boolean;
+  reason?: string;
+  details?: {
+    owner: string;
+    mint: string;
+    expectedOwner: string;
+    expectedMint: string;
+    amountUi: number;
+  };
 }
 
 export async function fetchMarkets(): Promise<{ source: string; markets: MarketData[] }> {
@@ -76,6 +173,51 @@ export async function fetchMarkets(): Promise<{ source: string; markets: MarketD
 export async function fetchMarketById(id: number): Promise<MarketData> {
   const { data } = await api.get(`/markets/${id}`);
   return data;
+}
+
+export async function fetchMarketUserPosition(
+  marketId: number,
+  userPubkey: string
+): Promise<UserPositionData | null> {
+  const { data } = await api.get(`/markets/${marketId}/position/${userPubkey}`);
+  return data.position || null;
+}
+
+export async function prepareCreateMarket(params: {
+  marketId: number;
+  creatorPubkey: string;
+  creatorUsdcAta: string;
+  usdcMint: string;
+  question: string;
+  durationSeconds: number;
+  creatorType?: "human" | "agent";
+  creatorLabel?: string;
+  agentId?: string;
+}): Promise<PrepareCreateMarketResponse> {
+  const { data } = await api.post("/markets/prepare-create", params);
+  return data;
+}
+
+export async function precheckCreatorAta(params: {
+  creatorPubkey: string;
+  creatorUsdcAta: string;
+  usdcMint: string;
+}): Promise<AtaPrecheckResponse> {
+  const { data } = await api.post("/markets/precheck-creator-ata", params);
+  return data;
+}
+
+export async function submitCreateMarket(params: {
+  signedTransaction: string;
+  creatorPubkey: string;
+}): Promise<SubmitCreateMarketResponse> {
+  const { data } = await api.post("/markets/submit-create", params);
+  return data;
+}
+
+export async function fetchCreatorMetadata(userPubkey: string): Promise<CreatorMetadata | null> {
+  const { data } = await api.get(`/markets/creator/${userPubkey}`);
+  return data.creator || null;
 }
 
 export async function fetchPlatformStats(): Promise<PlatformStats> {
@@ -120,6 +262,15 @@ export async function prepareTrade(params: {
   return data;
 }
 
+export async function precheckAta(params: {
+  marketId: number;
+  userPubkey: string;
+  userUsdcAta: string;
+}): Promise<AtaPrecheckResponse> {
+  const { data } = await api.post("/trade/precheck-ata", params);
+  return data;
+}
+
 export async function submitTrade(params: {
   signedTransaction: string;
   userPubkey: string;
@@ -147,4 +298,19 @@ export async function fetchProgramStatus(): Promise<{
 }> {
   const { data } = await api.get("/program/status");
   return data;
+}
+
+export async function fetchOverviewStats(): Promise<OverviewStats> {
+  const { data } = await api.get("/stats/overview");
+  return data;
+}
+
+export async function fetchMarketLeaderboard(): Promise<MarketLeaderboardEntry[]> {
+  const { data } = await api.get("/stats/leaderboard/markets");
+  return data.markets || [];
+}
+
+export async function fetchCreatorLeaderboard(): Promise<CreatorLeaderboardEntry[]> {
+  const { data } = await api.get("/stats/leaderboard/creators");
+  return data.creators || [];
 }

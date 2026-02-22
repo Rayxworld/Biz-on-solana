@@ -13,7 +13,7 @@
     "typecheck:fast": "node ./node_modules/typescript/bin/tsc -p tsconfig.typecheck.core.json --noEmit --pretty false"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "^0.30.1",
+    "@coral-xyz/anchor": "^0.29.0",
     "@langchain/core": "^0.3.40",
     "@langchain/openai": "^0.4.9",
     "@solana/web3.js": "^1.98.0",

@@ -70,6 +70,9 @@ backend/venv/
 backend/__pycache__/
 backend/$null
 frontend/node_modules/
+backend-node/out.txt
+backend-node/err.txt
+backend-node/*.txt
 
 # Do not ignore frontend source lib
 !frontend/src/lib/
