@@ -27,6 +27,7 @@ export interface MarketData {
   address: string;
   marketId: number;
   creator: string;
+  usdcMint: string;
   question: string;
   endTime: number;
   isActive: boolean;

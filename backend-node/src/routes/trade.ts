@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
+import { PublicKey } from "@solana/web3.js";
 import { solanaClient } from "../solana/client.js";
 import { recordTradeExecution } from "../ai/guardrails.js";
 import { tradeSubmitRateLimiter } from "../middleware/rateLimit.js";
@@ -35,6 +36,97 @@ const AtaPrecheckSchema = z.object({
   userPubkey: z.string().min(32).max(44),
   userUsdcAta: z.string().min(32).max(44),
 });
+
+const DeriveAtaSchema = z.object({
+  userPubkey: z.string().min(32).max(44),
+  mint: z.string().min(32).max(44),
+});
+
+const PrepareCreateAtaSchema = z.object({
+  userPubkey: z.string().min(32).max(44),
+  mint: z.string().min(32).max(44),
+});
+
+const SubmitCreateAtaSchema = z.object({
+  signedTransaction: z.string().min(1),
+  userPubkey: z.string().min(32).max(44),
+  mint: z.string().min(32).max(44),
+});
+
+router.post(
+  "/derive-ata",
+  validateBody(DeriveAtaSchema),
+  async (req: Request, res: Response) => {
+    try {
+      const { userPubkey, mint } = req.body as z.infer<typeof DeriveAtaSchema>;
+      const ata = solanaClient.deriveAssociatedTokenAddress(userPubkey, mint);
+      const parsed = await solanaClient.connection.getParsedAccountInfo(
+        new PublicKey(ata),
+        "confirmed"
+      );
+      const parsedData = parsed.value?.data as any;
+      const amountUi = parsedData?.parsed?.info?.tokenAmount?.uiAmount ?? 0;
+      return res.json({ ok: true, ata, exists: Boolean(parsed.value), amountUi });
+    } catch (err: any) {
+      return res.status(400).json({ ok: false, reason: err?.message || "Failed to derive ATA" });
+    }
+  }
+);
+
+router.post(
+  "/prepare-create-ata",
+  validateBody(PrepareCreateAtaSchema),
+  async (req: Request, res: Response) => {
+    try {
+      const { userPubkey, mint } = req.body as z.infer<typeof PrepareCreateAtaSchema>;
+      const result = await solanaClient.buildCreateAtaTransaction({
+        ownerPubkey: userPubkey,
+        mint,
+      });
+      return res.json({
+        ok: true,
+        transaction: result.transaction,
+        ata: result.ata,
+        alreadyExists: result.alreadyExists,
+      });
+    } catch (err: any) {
+      return res
+        .status(400)
+        .json({ ok: false, reason: err?.message || "Failed to prepare ATA create transaction" });
+    }
+  }
+);
+
+router.post(
+  "/submit-create-ata",
+  validateBody(SubmitCreateAtaSchema),
+  async (req: Request, res: Response) => {
+    try {
+      const { signedTransaction, userPubkey, mint } = req.body as z.infer<
+        typeof SubmitCreateAtaSchema
+      >;
+      const verification = solanaClient.verifySignedCreateAtaTransaction({
+        signedTxBase64: signedTransaction,
+        expectedUserPubkey: userPubkey,
+        expectedMint: mint,
+      });
+      if (!verification.ok) {
+        return res.status(400).json({ ok: false, reason: verification.reason });
+      }
+      const signature = await solanaClient.submitSignedTransaction(signedTransaction);
+      return res.json({
+        ok: true,
+        signature,
+        ata: verification.ata,
+        explorer: `https://explorer.solana.com/tx/${signature}?cluster=devnet`,
+      });
+    } catch (err: any) {
+      return res
+        .status(500)
+        .json({ ok: false, reason: err?.message || "Failed to submit ATA creation transaction" });
+    }
+  }
+);
 
 router.post(
   "/precheck-ata",

@@ -7,6 +7,7 @@ import {
   type CreatorLeaderboardEntry,
   DEFAULT_MARKET_MINT,
   DEFAULT_USER_USDC_ATA,
+  deriveAta,
   fetchCreatorLeaderboard,
   fetchMarketLeaderboard,
   fetchMarkets,
@@ -14,7 +15,9 @@ import {
   type MarketLeaderboardEntry,
   type OverviewStats,
   precheckCreatorAta,
+  prepareCreateAta,
   prepareCreateMarket,
+  submitCreateAta,
   submitCreateMarket,
   type MarketData,
 } from '../lib/api';
@@ -34,6 +37,8 @@ const Markets: React.FC = () => {
     localStorage.getItem("bizfi_user_usdc_ata") || DEFAULT_USER_USDC_ATA
   );
   const [createStatus, setCreateStatus] = useState<string | null>(null);
+  const [creatingAta, setCreatingAta] = useState(false);
+  const [advancedCreateConfig, setAdvancedCreateConfig] = useState(false);
   const [overviewStats, setOverviewStats] = useState<OverviewStats | null>(null);
   const [marketLeaderboard, setMarketLeaderboard] = useState<MarketLeaderboardEntry[]>([]);
   const [creatorLeaderboard, setCreatorLeaderboard] = useState<CreatorLeaderboardEntry[]>([]);
@@ -44,6 +49,24 @@ const Markets: React.FC = () => {
   useEffect(() => {
     loadMarkets();
   }, []);
+
+  useEffect(() => {
+    const syncAta = async () => {
+      if (!walletAddress || !createMint.trim()) return;
+      try {
+        const derived = await deriveAta({
+          userPubkey: walletAddress,
+          mint: createMint.trim(),
+        });
+        if (derived.ok && derived.ata) {
+          setCreateAta(derived.ata);
+        }
+      } catch {
+        // keep manual value if derive fails
+      }
+    };
+    syncAta();
+  }, [walletAddress, createMint]);
 
   const loadMarkets = async () => {
     setLoading(true);
@@ -149,6 +172,65 @@ const Markets: React.FC = () => {
       );
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleCreateAta = async () => {
+    if (!walletAddress) {
+      setCreateStatus("Connect wallet first.");
+      return;
+    }
+    if (!createMint.trim()) {
+      setCreateStatus("Set market mint first.");
+      return;
+    }
+    if (!window.solana?.signTransaction) {
+      setCreateStatus("Phantom signing API not available.");
+      return;
+    }
+    try {
+      setCreatingAta(true);
+      setCreateStatus("Preparing ATA creation...");
+      const prep = await prepareCreateAta({
+        userPubkey: walletAddress,
+        mint: createMint.trim(),
+      });
+      if (!prep.ok) {
+        throw new Error(prep.reason || "Failed to prepare ATA creation");
+      }
+      if (prep.alreadyExists && prep.ata) {
+        setCreateAta(prep.ata);
+        setCreateStatus("ATA already exists.");
+        return;
+      }
+      if (!prep.transaction) {
+        throw new Error("Missing ATA creation transaction payload");
+      }
+
+      const unsignedTx = Transaction.from(base64ToUint8Array(prep.transaction));
+      setCreateStatus("Sign ATA transaction in Phantom...");
+      const signedTx = await window.solana.signTransaction(unsignedTx);
+      const signedBase64 = uint8ArrayToBase64(signedTx.serialize());
+
+      const submit = await submitCreateAta({
+        signedTransaction: signedBase64,
+        userPubkey: walletAddress,
+        mint: createMint.trim(),
+      });
+      if (!submit.ok) {
+        throw new Error(submit.reason || "Failed to submit ATA creation");
+      }
+      if (submit.ata) setCreateAta(submit.ata);
+      setCreateStatus("ATA created successfully.");
+    } catch (err: any) {
+      setCreateStatus(
+        err?.response?.data?.reason ||
+          err?.response?.data?.error ||
+          err?.message ||
+          "Failed to create ATA."
+      );
+    } finally {
+      setCreatingAta(false);
     }
   };
 
@@ -365,7 +447,8 @@ const Markets: React.FC = () => {
                     value={createMint}
                     onChange={(e) => setCreateMint(e.target.value)}
                     placeholder="EVcDM3..."
-                    className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-slate-200"
+                    disabled={!advancedCreateConfig}
+                    className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-slate-200 disabled:opacity-70"
                   />
                 </div>
               </div>
@@ -374,8 +457,26 @@ const Markets: React.FC = () => {
                 <input
                   value={createAta}
                   onChange={(e) => setCreateAta(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-slate-200"
+                  disabled={!advancedCreateConfig}
+                  className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-slate-200 disabled:opacity-70"
                 />
+              </div>
+              <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+                <label className="flex items-center gap-2 text-xs text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={advancedCreateConfig}
+                    onChange={(e) => setAdvancedCreateConfig(e.target.checked)}
+                  />
+                  Advanced config (manual mint/ATA)
+                </label>
+                <button
+                  onClick={handleCreateAta}
+                  disabled={creatingAta}
+                  className="rounded-lg border border-emerald-400/30 px-2.5 py-1 text-[11px] text-emerald-200 disabled:opacity-60"
+                >
+                  {creatingAta ? "Creating..." : "Create ATA"}
+                </button>
               </div>
               <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
                 <div className="mb-1 text-[11px] uppercase tracking-[0.18em] text-slate-500">

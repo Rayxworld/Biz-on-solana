@@ -9,11 +9,14 @@ import type { MarketData, TradeAnalysis } from "../lib/api";
 import {
   type AnalysisResponse,
   DEFAULT_USER_USDC_ATA,
+  deriveAta,
   fetchMarketUserPosition,
   fetchMarketById,
   fetchMarkets,
   precheckAta,
+  prepareCreateAta,
   prepareTrade,
+  submitCreateAta,
   submitTrade,
 } from "../lib/api";
 
@@ -49,6 +52,8 @@ const MarketDetail: React.FC<MarketDetailProps> = ({ walletAddress }) => {
   const [userPosition, setUserPosition] = useState<{ yesAmount: number; noAmount: number } | null>(
     null
   );
+  const [advancedTradeConfig, setAdvancedTradeConfig] = useState(false);
+  const [creatingAta, setCreatingAta] = useState(false);
 
   const loadMarket = async () => {
     const numericId = parseInt(id || "0", 10);
@@ -98,6 +103,24 @@ const MarketDetail: React.FC<MarketDetailProps> = ({ walletAddress }) => {
   }, [walletAddress, market?.marketId]);
 
   useEffect(() => {
+    const syncAta = async () => {
+      if (!walletAddress || !market?.usdcMint) return;
+      try {
+        const derived = await deriveAta({
+          userPubkey: walletAddress,
+          mint: market.usdcMint,
+        });
+        if (derived.ok && derived.ata) {
+          setUserUsdcAta(derived.ata);
+        }
+      } catch {
+        // keep current ATA value when derivation fails
+      }
+    };
+    syncAta();
+  }, [walletAddress, market?.usdcMint]);
+
+  useEffect(() => {
     const runAtaCheck = async () => {
       if (!walletAddress || !market || !userUsdcAta.trim()) {
         setAtaCheckStatus(null);
@@ -133,6 +156,79 @@ const MarketDetail: React.FC<MarketDetailProps> = ({ walletAddress }) => {
     const t = setTimeout(runAtaCheck, 250);
     return () => clearTimeout(t);
   }, [walletAddress, market, userUsdcAta]);
+
+  const handleCreateAta = async () => {
+    if (!walletAddress || !market) {
+      setStatusModal({
+        type: "error",
+        title: "Wallet Not Connected",
+        message: "Connect wallet and open a valid market first.",
+      });
+      return;
+    }
+    if (!window.solana?.signTransaction) {
+      setStatusModal({
+        type: "error",
+        title: "Phantom Not Available",
+        message: "Phantom signing API is not available in this browser session.",
+      });
+      return;
+    }
+    try {
+      setCreatingAta(true);
+      const prep = await prepareCreateAta({
+        userPubkey: walletAddress,
+        mint: market.usdcMint,
+      });
+      if (!prep.ok) {
+        throw new Error(prep.reason || "Failed to prepare ATA creation");
+      }
+      if (prep.alreadyExists && prep.ata) {
+        setUserUsdcAta(prep.ata);
+        setStatusModal({
+          type: "success",
+          title: "ATA Ready",
+          message: "Your ATA already exists for this mint.",
+        });
+        return;
+      }
+      if (!prep.transaction) {
+        throw new Error("Missing ATA creation transaction payload");
+      }
+
+      const unsignedTx = Transaction.from(base64ToUint8Array(prep.transaction));
+      const signedTx = await window.solana.signTransaction(unsignedTx);
+      const signedBase64 = uint8ArrayToBase64(signedTx.serialize());
+
+      const submit = await submitCreateAta({
+        signedTransaction: signedBase64,
+        userPubkey: walletAddress,
+        mint: market.usdcMint,
+      });
+      if (!submit.ok) {
+        throw new Error(submit.reason || "Failed to submit ATA creation");
+      }
+      if (submit.ata) setUserUsdcAta(submit.ata);
+      setStatusModal({
+        type: "success",
+        title: "ATA Created",
+        message: submit.signature || "ATA created successfully.",
+        explorer: submit.explorer,
+      });
+    } catch (err: any) {
+      setStatusModal({
+        type: "error",
+        title: "ATA Creation Failed",
+        message:
+          err?.response?.data?.reason ||
+          err?.response?.data?.error ||
+          err?.message ||
+          "Failed to create ATA.",
+      });
+    } finally {
+      setCreatingAta(false);
+    }
+  };
 
   const handleExecute = (analysis: TradeAnalysis) => {
     const suggested = analysis.suggested_side === "abstain" ? "yes" : analysis.suggested_side;
@@ -360,13 +456,34 @@ const MarketDetail: React.FC<MarketDetailProps> = ({ walletAddress }) => {
         <div className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-400">
           Wallet Trade Config
         </div>
+        <div className="mb-2 text-[11px] text-slate-500">
+          Market mint: <span className="text-slate-300">{market.usdcMint}</span>
+        </div>
         <label className="mb-2 block text-[11px] text-slate-400">USDC ATA (for this market mint)</label>
         <input
           value={userUsdcAta}
           onChange={(e) => setUserUsdcAta(e.target.value)}
           placeholder="Paste your USDC ATA"
-          className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs text-slate-200 outline-none focus:border-emerald-400/50"
+          disabled={!advancedTradeConfig}
+          className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs text-slate-200 outline-none focus:border-emerald-400/50 disabled:opacity-70"
         />
+        <div className="mt-2 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+          <label className="flex items-center gap-2 text-[11px] text-slate-300">
+            <input
+              type="checkbox"
+              checked={advancedTradeConfig}
+              onChange={(e) => setAdvancedTradeConfig(e.target.checked)}
+            />
+            Advanced config (manual ATA)
+          </label>
+          <button
+            onClick={handleCreateAta}
+            disabled={creatingAta}
+            className="rounded-lg border border-emerald-400/30 px-2.5 py-1 text-[11px] text-emerald-200 disabled:opacity-60"
+          >
+            {creatingAta ? "Creating..." : "Create ATA"}
+          </button>
+        </div>
         <button
           onClick={() => {
             localStorage.removeItem("bizfi_user_usdc_ata");

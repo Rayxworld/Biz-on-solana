@@ -18,6 +18,9 @@ import type { MarketAccount, MarketData, UserPosition } from "../types/market.js
 const IDL_PATH = config.solanaIdlPath;
 const PROGRAM_ID = new PublicKey(config.programId);
 const SPL_TOKEN_PROGRAM = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+const SPL_ASSOCIATED_TOKEN_PROGRAM = new PublicKey(
+  "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+);
 
 function marketIdToLeBytes(marketId: number): Buffer {
   const buf = Buffer.alloc(8);
@@ -194,6 +197,57 @@ export class SolanaClient {
     };
   }
 
+  deriveAssociatedTokenAddress(ownerPubkey: string, mint: string): string {
+    const [ata] = PublicKey.findProgramAddressSync(
+      [
+        new PublicKey(ownerPubkey).toBuffer(),
+        SPL_TOKEN_PROGRAM.toBuffer(),
+        new PublicKey(mint).toBuffer(),
+      ],
+      SPL_ASSOCIATED_TOKEN_PROGRAM
+    );
+    return ata.toBase58();
+  }
+
+  async buildCreateAtaTransaction(params: {
+    ownerPubkey: string;
+    mint: string;
+  }): Promise<{ transaction: string; ata: string; alreadyExists: boolean }> {
+    const owner = new PublicKey(params.ownerPubkey);
+    const mint = new PublicKey(params.mint);
+    const ata = new PublicKey(this.deriveAssociatedTokenAddress(params.ownerPubkey, params.mint));
+
+    const existing = await this.connection.getAccountInfo(ata, "confirmed");
+    if (existing) {
+      return { transaction: "", ata: ata.toBase58(), alreadyExists: true };
+    }
+
+    const createAtaIx = new TransactionInstruction({
+      programId: SPL_ASSOCIATED_TOKEN_PROGRAM,
+      keys: [
+        { pubkey: owner, isSigner: true, isWritable: true },
+        { pubkey: ata, isSigner: false, isWritable: true },
+        { pubkey: owner, isSigner: false, isWritable: false },
+        { pubkey: mint, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        { pubkey: SPL_TOKEN_PROGRAM, isSigner: false, isWritable: false },
+        { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
+      ],
+      data: Buffer.alloc(0),
+    });
+
+    const tx = new Transaction().add(createAtaIx);
+    tx.feePayer = owner;
+    const { blockhash } = await this.connection.getLatestBlockhash("confirmed");
+    tx.recentBlockhash = blockhash;
+
+    return {
+      transaction: tx.serialize({ requireAllSignatures: false }).toString("base64"),
+      ata: ata.toBase58(),
+      alreadyExists: false,
+    };
+  }
+
   async buildInitializeMarketTransaction(params: {
     marketId: number;
     creatorPubkey: string;
@@ -305,6 +359,51 @@ export class SolanaClient {
       marketAddress: ix.keys[0].pubkey.toBase58(),
       userUsdcAta: ix.keys[2].pubkey.toBase58(),
     };
+  }
+
+  verifySignedCreateAtaTransaction(params: {
+    signedTxBase64: string;
+    expectedUserPubkey: string;
+    expectedMint: string;
+  }): { ok: true; ata: string } | { ok: false; reason: string } {
+    let tx: Transaction;
+    try {
+      tx = Transaction.from(Buffer.from(params.signedTxBase64, "base64"));
+    } catch {
+      return { ok: false, reason: "Invalid signed transaction payload" };
+    }
+
+    const expectedUser = new PublicKey(params.expectedUserPubkey);
+    const expectedMint = new PublicKey(params.expectedMint);
+    const expectedAta = new PublicKey(
+      this.deriveAssociatedTokenAddress(params.expectedUserPubkey, params.expectedMint)
+    );
+
+    if (!tx.feePayer || !tx.feePayer.equals(expectedUser)) {
+      return { ok: false, reason: "Fee payer does not match submitting wallet" };
+    }
+
+    const walletSig = tx.signatures.find((sig) => sig.publicKey.equals(expectedUser));
+    if (!walletSig?.signature) {
+      return { ok: false, reason: "Submitting wallet signature is missing" };
+    }
+
+    const createIx = tx.instructions.find(
+      (ix) =>
+        ix.programId.equals(SPL_ASSOCIATED_TOKEN_PROGRAM) &&
+        ix.keys[1]?.pubkey &&
+        ix.keys[2]?.pubkey &&
+        ix.keys[3]?.pubkey &&
+        ix.keys[1].pubkey.equals(expectedAta) &&
+        ix.keys[2].pubkey.equals(expectedUser) &&
+        ix.keys[3].pubkey.equals(expectedMint)
+    );
+
+    if (!createIx) {
+      return { ok: false, reason: "No valid associated token account creation instruction found" };
+    }
+
+    return { ok: true, ata: expectedAta.toBase58() };
   }
 
   verifySignedInitializeMarketTransaction(params: {
@@ -600,6 +699,7 @@ export class SolanaClient {
       address,
       marketId: toNumeric(raw.marketId),
       creator: toBase58(raw.creator),
+      usdcMint: toBase58(raw.usdcMint),
       question: raw.question,
       endTime,
       isActive: "active" in raw.status,

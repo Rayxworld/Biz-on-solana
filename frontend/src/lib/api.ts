@@ -64,6 +64,7 @@ export interface UserPositionData {
 export interface MarketData {
   address: string;
   marketId: number;
+  usdcMint: string;
   question: string;
   totalPool: number;
   yesPool: number;
@@ -163,6 +164,30 @@ export interface AtaPrecheckResponse {
     expectedMint: string;
     amountUi: number;
   };
+}
+
+export interface DeriveAtaResponse {
+  ok: boolean;
+  ata?: string;
+  exists?: boolean;
+  amountUi?: number;
+  reason?: string;
+}
+
+export interface PrepareCreateAtaResponse {
+  ok: boolean;
+  transaction?: string;
+  ata?: string;
+  alreadyExists?: boolean;
+  reason?: string;
+}
+
+export interface SubmitCreateAtaResponse {
+  ok: boolean;
+  signature?: string;
+  ata?: string;
+  explorer?: string;
+  reason?: string;
 }
 
 export async function fetchMarkets(): Promise<{ source: string; markets: MarketData[] }> {
@@ -268,6 +293,31 @@ export async function precheckAta(params: {
   userUsdcAta: string;
 }): Promise<AtaPrecheckResponse> {
   const { data } = await api.post("/trade/precheck-ata", params);
+  return data;
+}
+
+export async function deriveAta(params: {
+  userPubkey: string;
+  mint: string;
+}): Promise<DeriveAtaResponse> {
+  const { data } = await api.post("/trade/derive-ata", params);
+  return data;
+}
+
+export async function prepareCreateAta(params: {
+  userPubkey: string;
+  mint: string;
+}): Promise<PrepareCreateAtaResponse> {
+  const { data } = await api.post("/trade/prepare-create-ata", params);
+  return data;
+}
+
+export async function submitCreateAta(params: {
+  signedTransaction: string;
+  userPubkey: string;
+  mint: string;
+}): Promise<SubmitCreateAtaResponse> {
+  const { data } = await api.post("/trade/submit-create-ata", params);
   return data;
 }
 
