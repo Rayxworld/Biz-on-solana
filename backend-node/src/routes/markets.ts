@@ -191,8 +191,8 @@ router.post(
         },
       });
     } catch (err: any) {
-      console.error("POST /api/markets/prepare-create error:", err.message);
-      return res.status(500).json({ error: "Failed to prepare market creation" });
+      console.error("POST /api/markets/prepare-create error:", err.stack || err.message);
+      return res.status(500).json({ error: "Failed to prepare market creation", details: err.message });
     }
   }
 );

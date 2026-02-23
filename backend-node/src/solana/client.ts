@@ -258,51 +258,56 @@ export class SolanaClient {
     creationFeeMicroUsdc: number;
     feeCollectorAta: string;
   }): Promise<{ transaction: string; marketAddress: string }> {
-    const program = this.getProgram();
-    const creator = new PublicKey(params.creatorPubkey);
-    const creatorUsdcAta = new PublicKey(params.creatorUsdcAta);
-    const usdcMint = new PublicKey(params.usdcMint);
-    const feeCollectorAta = new PublicKey(params.feeCollectorAta);
-    const [marketPDA] = deriveMarketPDA(params.marketId);
-    const [vaultAuthority] = deriveVaultAuthorityPDA(params.marketId);
-    const [vaultUsdc] = deriveVaultPDA(params.marketId);
+    try {
+      const program = this.getProgram();
+      const creator = new PublicKey(params.creatorPubkey);
+      const creatorUsdcAta = new PublicKey(params.creatorUsdcAta);
+      const usdcMint = new PublicKey(params.usdcMint);
+      const feeCollectorAta = new PublicKey(params.feeCollectorAta);
+      const [marketPDA] = deriveMarketPDA(params.marketId);
+      const [vaultAuthority] = deriveVaultAuthorityPDA(params.marketId);
+      const [vaultUsdc] = deriveVaultPDA(params.marketId);
 
-    const tx = await program.methods
-      .initializeMarket(
-        new BN(params.marketId),
-        params.question,
-        new BN(params.durationSeconds)
-      )
-      .accounts({
-        market: marketPDA,
-        vaultAuthority,
-        vaultUsdc,
-        usdcMint,
-        creator,
-        tokenProgram: SPL_TOKEN_PROGRAM,
-        systemProgram: SystemProgram.programId,
-        rent: SYSVAR_RENT_PUBKEY,
-      })
-      .transaction();
+      const tx = await program.methods
+        .initializeMarket(
+          new BN(params.marketId),
+          params.question,
+          new BN(params.durationSeconds)
+        )
+        .accounts({
+          market: marketPDA,
+          vaultAuthority,
+          vaultUsdc,
+          usdcMint,
+          creator,
+          tokenProgram: SPL_TOKEN_PROGRAM,
+          systemProgram: SystemProgram.programId,
+          rent: SYSVAR_RENT_PUBKEY,
+        })
+        .transaction();
 
-    if (params.creationFeeMicroUsdc > 0) {
-      const feeIx = buildSplTransferInstruction({
-        source: creatorUsdcAta,
-        destination: feeCollectorAta,
-        owner: creator,
-        amount: params.creationFeeMicroUsdc,
-      });
-      tx.instructions.unshift(feeIx);
+      if (params.creationFeeMicroUsdc > 0) {
+        const feeIx = buildSplTransferInstruction({
+          source: creatorUsdcAta,
+          destination: feeCollectorAta,
+          owner: creator,
+          amount: params.creationFeeMicroUsdc,
+        });
+        tx.instructions.unshift(feeIx);
+      }
+
+      tx.feePayer = creator;
+      const { blockhash } = await this.connection.getLatestBlockhash("confirmed");
+      tx.recentBlockhash = blockhash;
+
+      return {
+        transaction: tx.serialize({ requireAllSignatures: false }).toString("base64"),
+        marketAddress: marketPDA.toBase58(),
+      };
+    } catch (err: any) {
+      console.error("buildInitializeMarketTransaction Error:", err);
+      throw new Error(`Failed to build initialize market transaction: ${err.message}`);
     }
-
-    tx.feePayer = creator;
-    const { blockhash } = await this.connection.getLatestBlockhash("confirmed");
-    tx.recentBlockhash = blockhash;
-
-    return {
-      transaction: tx.serialize({ requireAllSignatures: false }).toString("base64"),
-      marketAddress: marketPDA.toBase58(),
-    };
   }
 
   async submitSignedTransaction(signedTxBase64: string): Promise<string> {

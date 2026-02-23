@@ -3,10 +3,34 @@ import path from "path";
 
 dotenv.config();
 
-const defaultIdlPath = path.resolve(
-  process.cwd(),
-  process.env.SOLANA_IDL_PATH || "../contracts/target/idl/bizfi_market.json"
-);
+import fs from "fs";
+
+function resolveIdlPath(): string {
+  if (process.env.SOLANA_IDL_PATH) {
+    const rawPath = path.resolve(process.cwd(), process.env.SOLANA_IDL_PATH);
+    try {
+      if (fs.existsSync(rawPath) && fs.statSync(rawPath).isDirectory()) {
+        const jsonPath = path.join(rawPath, "idl.json");
+        if (fs.existsSync(jsonPath)) return jsonPath;
+      }
+    } catch (e) {}
+    return rawPath;
+  }
+  
+  const possiblePaths = [
+    path.resolve(process.cwd(), "src/idl/idl.json"),
+    path.resolve(process.cwd(), "../contracts/target/idl/bizfi_market.json"),
+    path.resolve(process.cwd(), "idl.json")
+  ];
+  
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) return p;
+  }
+  
+  return possiblePaths[0];
+}
+
+const defaultIdlPath = resolveIdlPath();
 
 export const config = {
   // LLM (Groq via OpenAI-compatible API)
