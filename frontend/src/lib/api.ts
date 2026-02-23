@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_URL || "https://biz-on-solana-production.up.railway.app";
 export const DEFAULT_MARKET_MINT = import.meta.env.VITE_MARKET_MINT || "";
 export const DEFAULT_USER_USDC_ATA = import.meta.env.VITE_USER_USDC_ATA || "";
 

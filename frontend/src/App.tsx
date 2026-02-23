@@ -5,6 +5,7 @@ import AppShell from './components/AppShell';
 import Home from './pages/Home';
 import Markets from './pages/Markets';
 import MarketDetail from './pages/MarketDetail';
+import { createDummyMintAndAta } from './lib/autoMint';
 
 const App: React.FC = () => {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
@@ -29,6 +30,24 @@ const App: React.FC = () => {
       const resp = await window.solana?.connect();
       if (resp?.publicKey) {
         setWalletAddress(resp.publicKey.toString());
+        
+        // Auto-mint logic
+        const existingMint = localStorage.getItem("bizfi_market_mint");
+        const existingAta = localStorage.getItem("bizfi_user_usdc_ata");
+        
+        if (!existingMint || !existingAta) {
+          try {
+            const result = await createDummyMintAndAta(window.solana, resp.publicKey.toString());
+            if (result) {
+              localStorage.setItem("bizfi_market_mint", result.mint);
+              localStorage.setItem("bizfi_user_usdc_ata", result.ata);
+              console.log("Successfully auto-created token mint and ATA:", result);
+            }
+          } catch (err) {
+            console.error("Auto-mint flow failed:", err);
+          }
+        }
+        
         navigate("/markets");
       }
     } catch (error) {

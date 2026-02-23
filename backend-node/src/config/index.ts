@@ -33,7 +33,9 @@ export const config = {
 
   // Server
   port: parseInt(process.env.PORT || "3001", 10),
-  corsOrigin: process.env.CORS_ORIGIN || "http://localhost:5173",
+  corsOrigin: process.env.CORS_ORIGIN 
+    ? process.env.CORS_ORIGIN.split(",") 
+    : "http://localhost:5173",
 } as const;
 
 /**
