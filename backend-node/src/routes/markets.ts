@@ -131,9 +131,9 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const payload = req.body as z.infer<typeof PrepareCreateMarketSchema>;
-      if (!config.marketFeeCollectorAta) {
+      if (!config.marketFeeCollector) {
         return res.status(500).json({
-          error: "MARKET_FEE_COLLECTOR_ATA is not configured on backend",
+          error: "MARKET_FEE_COLLECTOR is not configured on backend",
         });
       }
       const checks = enforceMarketCreationGuardrails({
@@ -177,7 +177,7 @@ router.post(
         question: payload.question,
         durationSeconds: payload.durationSeconds,
         creationFeeMicroUsdc: config.marketCreationFeeMicroUsdc,
-        feeCollectorAta: config.marketFeeCollectorAta,
+        feeCollector: config.marketFeeCollector,
       });
 
       return res.json({
@@ -187,7 +187,7 @@ router.post(
         marketAddress: result.marketAddress,
         fee: {
           amountMicroUsdc: config.marketCreationFeeMicroUsdc,
-          collectorAta: config.marketFeeCollectorAta,
+          collector: config.marketFeeCollector,
         },
       });
     } catch (err: any) {
@@ -205,15 +205,15 @@ router.post(
       const { signedTransaction, creatorPubkey } = req.body as z.infer<
         typeof SubmitCreateMarketSchema
       >;
-      if (!config.marketFeeCollectorAta) {
+      if (!config.marketFeeCollector) {
         return res.status(500).json({
-          error: "MARKET_FEE_COLLECTOR_ATA is not configured on backend",
+          error: "MARKET_FEE_COLLECTOR is not configured on backend",
         });
       }
       const verification = solanaClient.verifySignedInitializeMarketTransaction({
         signedTxBase64: signedTransaction,
         expectedCreatorPubkey: creatorPubkey,
-        expectedFeeCollectorAta: config.marketFeeCollectorAta,
+        expectedFeeCollector: config.marketFeeCollector,
         minCreationFeeMicroUsdc: config.marketCreationFeeMicroUsdc,
       });
       if (!verification.ok) {

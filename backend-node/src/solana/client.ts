@@ -256,14 +256,14 @@ export class SolanaClient {
     question: string;
     durationSeconds: number;
     creationFeeMicroUsdc: number;
-    feeCollectorAta: string;
+    feeCollector: string;
   }): Promise<{ transaction: string; marketAddress: string }> {
     try {
       const program = this.getProgram();
       const creator = new PublicKey(params.creatorPubkey);
       const creatorUsdcAta = new PublicKey(params.creatorUsdcAta);
       const usdcMint = new PublicKey(params.usdcMint);
-      const feeCollectorAta = new PublicKey(params.feeCollectorAta);
+      const feeCollectorWallet = new PublicKey(params.feeCollector);
       const [marketPDA] = deriveMarketPDA(params.marketId);
       const [vaultAuthority] = deriveVaultAuthorityPDA(params.marketId);
       const [vaultUsdc] = deriveVaultPDA(params.marketId);
@@ -287,13 +287,36 @@ export class SolanaClient {
         .transaction();
 
       if (params.creationFeeMicroUsdc > 0) {
+        const collectorAtaString = this.deriveAssociatedTokenAddress(params.feeCollector, params.usdcMint);
+        const collectorAta = new PublicKey(collectorAtaString);
+        
+        // Prepare fee transfer
         const feeIx = buildSplTransferInstruction({
           source: creatorUsdcAta,
-          destination: feeCollectorAta,
+          destination: collectorAta,
           owner: creator,
           amount: params.creationFeeMicroUsdc,
         });
         tx.instructions.unshift(feeIx);
+
+        // Check if destination ATA exists, if not prepend CreateATA instruction
+        const destInfo = await this.connection.getAccountInfo(collectorAta);
+        if (!destInfo) {
+          const createIx = new TransactionInstruction({
+            programId: SPL_ASSOCIATED_TOKEN_PROGRAM,
+            keys: [
+              { pubkey: creator, isSigner: true, isWritable: true },
+              { pubkey: collectorAta, isSigner: false, isWritable: true },
+              { pubkey: feeCollectorWallet, isSigner: false, isWritable: false },
+              { pubkey: usdcMint, isSigner: false, isWritable: false },
+              { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+              { pubkey: SPL_TOKEN_PROGRAM, isSigner: false, isWritable: false },
+              { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
+            ],
+            data: Buffer.alloc(0),
+          });
+          tx.instructions.unshift(createIx);
+        }
       }
 
       tx.feePayer = creator;
@@ -414,7 +437,7 @@ export class SolanaClient {
   verifySignedInitializeMarketTransaction(params: {
     signedTxBase64: string;
     expectedCreatorPubkey: string;
-    expectedFeeCollectorAta: string;
+    expectedFeeCollector: string;
     minCreationFeeMicroUsdc: number;
   }):
     | {
@@ -451,6 +474,18 @@ export class SolanaClient {
       return { ok: false, reason: "Program instruction is not initialize_market" };
     }
 
+    // We need to know the mint to derive the expected collector ATA
+    // The initializeMarket instruction's accounts are:
+    // market, vaultAuthority, vaultUsdc, usdcMint, creator, tokenProgram, systemProgram, rent
+    const mintPubkey = initIx.keys[3]?.pubkey;
+    if (!mintPubkey) {
+      return { ok: false, reason: "Mint account missing from initialize instruction" };
+    }
+
+    const expectedCollectorAta = new PublicKey(
+      this.deriveAssociatedTokenAddress(params.expectedFeeCollector, mintPubkey.toBase58())
+    );
+
     const marketAddress = initIx.keys[0]?.pubkey?.toBase58?.() || "";
 
     if (params.minCreationFeeMicroUsdc <= 0) {
@@ -465,7 +500,7 @@ export class SolanaClient {
     const feeCheck = verifyFeeTransferInTx({
       tx,
       expectedOwner: expectedCreator,
-      expectedDestination: new PublicKey(params.expectedFeeCollectorAta),
+      expectedDestination: expectedCollectorAta,
       minAmount: params.minCreationFeeMicroUsdc,
     });
     if (!feeCheck.ok) return { ok: false, reason: feeCheck.reason };

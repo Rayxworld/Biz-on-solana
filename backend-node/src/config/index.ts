@@ -53,7 +53,7 @@ export const config = {
     process.env.MARKET_CREATION_FEE_MICROUSDC || "1000000",
     10
   ),
-  marketFeeCollectorAta: process.env.MARKET_FEE_COLLECTOR_ATA || "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU", // Dummy fallback if missing on Railway
+  marketFeeCollector: process.env.MARKET_FEE_COLLECTOR || "7y9uSgEw24H4E5wJQnF6uYf3pSjXQxV6rT9qWz2H8m9q", // Dummy wallet fallback if missing on Railway
 
   // Supabase
   supabaseUrl: process.env.SUPABASE_URL || "",
