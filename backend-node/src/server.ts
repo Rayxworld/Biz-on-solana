@@ -9,7 +9,14 @@ import statsRouter from "./routes/stats.js";
 
 const app = express();
 
-app.use(cors({ origin: config.corsOrigin, credentials: true }));
+app.use((cors as any)({ 
+  origin: [
+    config.corsOrigin, 
+    "https://biz-on-solana.vercel.app", 
+    /^https:\/\/.*\.vercel\.app$/ // Allow preview deployments
+  ], 
+  credentials: true 
+}));
 app.use(express.json({ limit: "1mb" }));
 app.use(globalRateLimiter);
 

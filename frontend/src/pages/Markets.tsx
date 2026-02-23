@@ -48,6 +48,18 @@ const Markets: React.FC = () => {
 
   useEffect(() => {
     loadMarkets();
+    
+    const handleAutoMintComplete = () => {
+      const newMint = localStorage.getItem("bizfi_market_mint");
+      const newAta = localStorage.getItem("bizfi_user_usdc_ata");
+      if (newMint) setCreateMint(newMint);
+      if (newAta) setCreateAta(newAta);
+    };
+
+    window.addEventListener("bizfi_automint_complete", handleAutoMintComplete);
+    return () => {
+      window.removeEventListener("bizfi_automint_complete", handleAutoMintComplete);
+    };
   }, []);
 
   useEffect(() => {

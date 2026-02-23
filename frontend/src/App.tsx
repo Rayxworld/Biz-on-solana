@@ -41,6 +41,7 @@ const App: React.FC = () => {
             if (result) {
               localStorage.setItem("bizfi_market_mint", result.mint);
               localStorage.setItem("bizfi_user_usdc_ata", result.ata);
+              window.dispatchEvent(new Event("bizfi_automint_complete"));
               console.log("Successfully auto-created token mint and ATA:", result);
             }
           } catch (err) {
