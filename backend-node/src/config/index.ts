@@ -6,28 +6,32 @@ dotenv.config();
 import fs from "fs";
 
 function resolveIdlPath(): string {
+  const possiblePaths: string[] = [];
+
   if (process.env.SOLANA_IDL_PATH) {
     const rawPath = path.resolve(process.cwd(), process.env.SOLANA_IDL_PATH);
-    try {
-      if (fs.existsSync(rawPath) && fs.statSync(rawPath).isDirectory()) {
-        const jsonPath = path.join(rawPath, "idl.json");
-        if (fs.existsSync(jsonPath)) return jsonPath;
-      }
-    } catch (e) {}
-    return rawPath;
+    possiblePaths.push(rawPath);
+    possiblePaths.push(path.join(rawPath, "idl.json"));
+    possiblePaths.push(path.join(rawPath, "src", "idl", "idl.json"));
   }
-  
-  const possiblePaths = [
-    path.resolve(process.cwd(), "src/idl/idl.json"),
-    path.resolve(process.cwd(), "../contracts/target/idl/bizfi_market.json"),
-    path.resolve(process.cwd(), "idl.json")
-  ];
-  
+
+  // Append standard project fallback structures
+  possiblePaths.push(path.resolve(process.cwd(), "src/idl/idl.json"));
+  possiblePaths.push(path.resolve(process.cwd(), "idl.json"));
+  possiblePaths.push(path.resolve(process.cwd(), "../contracts/target/idl/bizfi_market.json"));
+
   for (const p of possiblePaths) {
-    if (fs.existsSync(p)) return p;
+    try {
+      if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+        return p;
+      }
+    } catch (e) {
+      // Ignore stat errors for paths that don't exist
+    }
   }
-  
-  return possiblePaths[0];
+
+  // If nothing is found, fall back to the first possible raw path so the error makes sense.
+  return possiblePaths[0] || "idl.json";
 }
 
 const defaultIdlPath = resolveIdlPath();
