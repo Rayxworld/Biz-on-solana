@@ -5,7 +5,7 @@ Last updated: 2026-02-20
 ## What Is Built
 
 ### Smart Contract (Solana + Anchor)
-- Program name: `bizfi_market`
+- Program name: `bizfi_maret`
 - Program ID: `5JUtUiusEUzwgub1LTztjGJ1h2krpzqBaVfQrEHHwJbr`
 - Instructions: `initialize_market`, `place_bet`, `resolve_market`, `claim_winnings`
 - PDA model: `market`, `position`, `vault`, `vault_authority`
