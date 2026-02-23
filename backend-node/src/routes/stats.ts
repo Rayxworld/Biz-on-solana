@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from "express";
+import { config } from "../config/index.js";
 import { solanaClient } from "../solana/client.js";
 import { getCreatorActivity, getMetricsSnapshot } from "../services/metrics.js";
 
