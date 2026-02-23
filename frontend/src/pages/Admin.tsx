@@ -114,6 +114,33 @@ const Admin: React.FC = () => {
             delay={0.6}
           />
 
+          {/* Platform Config Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.7 }}
+            className="col-span-1 flex flex-col justify-between rounded-2xl border border-white/10 bg-[#121a23]/60 p-6 shadow-xl md:col-span-2 lg:col-span-3"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-400/10">
+                <ShieldCheck className="h-5 w-5 text-sky-300" />
+              </div>
+              <div className="text-sm uppercase tracking-[0.2em] text-slate-300">
+                Platform Wallet Configuration
+              </div>
+            </div>
+            <div className="mt-4 flex flex-col gap-2">
+              <div className="text-xs text-slate-500 uppercase tracking-wider">Fee Collector (Wallet)</div>
+              <div className="font-mono text-sm break-all text-emerald-400 select-all cursor-pointer hover:text-emerald-300 transition-colors" title="Click to copy">
+                {stats.feeCollector}
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                This treasury wallet receives all {formatUsdc(stats.totalCreationFeesMicroUsdc)} USDC in platform fees. 
+                Associated Token Accounts (ATAs) are derived and created automatically for each market mint.
+              </p>
+            </div>
+          </motion.div>
+
         </div>
       ) : (
         <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-6 text-center text-rose-300">

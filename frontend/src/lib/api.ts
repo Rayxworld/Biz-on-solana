@@ -87,6 +87,7 @@ export interface OverviewStats {
   totalTradeVolumeMicroUsdc: number;
   totalCreationFeesMicroUsdc: number;
   totalAnalyses: number;
+  feeCollector: string;
 }
 
 export interface MarketLeaderboardEntry {

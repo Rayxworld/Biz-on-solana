@@ -20,6 +20,7 @@ router.get("/overview", async (_req: Request, res: Response) => {
       totalTradeVolumeMicroUsdc: metrics.totalTradeVolumeMicroUsdc,
       totalCreationFeesMicroUsdc: metrics.totalCreationFeesMicroUsdc,
       totalAnalyses: metrics.totalAnalyses,
+      feeCollector: config.marketFeeCollector,
     });
   } catch (err: any) {
     console.error("GET /api/stats/overview error:", err.message);

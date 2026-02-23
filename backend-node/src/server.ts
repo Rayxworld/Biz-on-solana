@@ -30,7 +30,7 @@ app.get("/api/health", (_req, res) => {
       rpc: config.solanaRpcUrl.includes("helius") ? "helius" : "devnet",
       hasGroq: Boolean(config.groqApiKey),
       hasSupabase: Boolean(config.supabaseUrl && config.supabaseServiceKey),
-      hasMarketFeeConfig: Boolean(config.marketFeeCollectorAta),
+      hasMarketFeeConfig: Boolean(config.marketFeeCollector),
       idlPath: config.solanaIdlPath,
     },
   });

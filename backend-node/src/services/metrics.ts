@@ -2,9 +2,17 @@ type TradeMetric = { userPubkey: string; amount: number; timestamp: string };
 type CreateMetric = { creatorPubkey: string; feePaid: number; timestamp: string };
 type AnalysisMetric = { userPubkey: string; marketId: number; timestamp: string };
 
-const tradeMetrics: TradeMetric[] = [];
-const createMetrics: CreateMetric[] = [];
-const analysisMetrics: AnalysisMetric[] = [];
+const tradeMetrics: TradeMetric[] = [
+  { userPubkey: "DemoUser1", amount: 5000000, timestamp: new Date().toISOString() },
+  { userPubkey: "DemoUser2", amount: 15000000, timestamp: new Date().toISOString() },
+];
+const createMetrics: CreateMetric[] = [
+  { creatorPubkey: "DemoCreator1", feePaid: 1000000, timestamp: new Date().toISOString() },
+  { creatorPubkey: "DemoCreator2", feePaid: 1000000, timestamp: new Date().toISOString() },
+];
+const analysisMetrics: AnalysisMetric[] = [
+  { userPubkey: "DemoUser1", marketId: 1, timestamp: new Date().toISOString() },
+];
 
 function keepRecent<T>(arr: T[], max = 2000): void {
   if (arr.length > max) arr.splice(0, arr.length - max);
