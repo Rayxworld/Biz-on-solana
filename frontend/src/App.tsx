@@ -5,6 +5,7 @@ import AppShell from './components/AppShell';
 import Home from './pages/Home';
 import Markets from './pages/Markets';
 import MarketDetail from './pages/MarketDetail';
+import Admin from './pages/Admin';
 import { createDummyMintAndAta } from './lib/autoMint';
 
 const App: React.FC = () => {
@@ -91,6 +92,14 @@ const App: React.FC = () => {
           >
             Markets
           </NavLink>
+          <NavLink
+            to="/admin"
+            className={({ isActive }) =>
+              `rounded-md border px-4 py-2 ${isActive ? 'border-emerald-400/60 bg-emerald-400/10 text-emerald-200' : 'border-white/10 text-slate-400 hover:text-white'}`
+            }
+          >
+            Admin
+          </NavLink>
         </nav>
 
         <button
@@ -107,6 +116,7 @@ const App: React.FC = () => {
         <Route path="/" element={<Home />} />
         <Route path="/markets" element={<Markets />} />
         <Route path="/markets/:id" element={<MarketDetail walletAddress={walletAddress} />} />
+        <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<Navigate to="/markets" replace />} />
       </Routes>
     </AppShell>
